@@ -1,10 +1,13 @@
 /**
+ * The Auth0 and DPoP login flow in this file is ported from binarydev/ha-generac
+ * (Auth0 flow by sslivins, MFA handling by pjordanandrsn, Apache-2.0; see NOTICE).
+ * It was validated end to end against a live Mobile Link account with SMS MFA
+ * on September 15, 2026.
+ */
+
+/**
  * Generac Mobile Link authentication: Auth0 universal login (PKCE) with
  * DPoP-bound tokens, driven the way the iOS app does it.
- *
- * Validated end to end on September 15, 2026 against a live account with SMS
- * MFA. Ported from binarydev/ha-generac (auth.py): Auth0 flow by sslivins,
- * MFA handling by pjordanandrsn. Apache-2.0.
  *
  * Only `login()` needs a password, and only `homebridge-generac login` calls
  * it. The running plugin uses `refreshAccessToken()` with the persisted
