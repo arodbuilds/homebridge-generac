@@ -27,6 +27,7 @@ Successor to the unmaintained `homebridge-mobilelink`. Ground-up rewrite; no cod
 4. Adaptive polling with backoff.
 5. Per-generator display name override.
 6. Settings page on the Homebridge plugin shell.
+7. Exercising sensor with retroactive detection from the last-exercise event.
 
 ### 2.2 Deferred
 1. Propane tank monitors (type 2) as a battery-percentage accessory. Planned for 0.2.0. The generator card already reserves a Fuel row.
@@ -110,6 +111,7 @@ Generac rate-limits per account and has publicly objected to third-party polling
 - Properties are keyed by numeric `type`, never by `name`: 70 Battery Voltage (string "13.6"), 71 Engine Hours (number), 95 Exercise Minutes (string, minutes past midnight: 605 = 10:05 AM), 88 Fuel Type (string enum: 1 natural gas; 2 and 3 presumed propane and diesel), 32 Hours of Protection (number). Values are coerced from mixed string and number.
 - `fault` is true when any of: status Warning; status Stopped and `faultOnStopped`; status Communication Issue or `isConnected=false` and `faultOnDisconnected`; `showWarning`; `alarms[]` non-empty; `warnings[]` non-empty; `currentAlarm` not "0". `faultReasons[]` lists which.
 - `maintenanceDue` = `hasMaintenanceAlert || maintenance[].length > 0`.
+- `exercising` = status 3. `lastExerciseAt` = `alert.timestamp` when `alert.eventType` is 42, else null. The event is recorded at exercise completion (observed: 10:06 for a 10:00 start).
 - `connected` = `isConnected`.
 - Battery percent = linear map of volts from 11.8 (0) to 12.8 (100), clamped. Low = volts ≤ `batteryLowVoltage`. Charging state reported as Not chargeable.
 - `weather.temperature` may be F or C; normalised to F for display only.
@@ -119,11 +121,12 @@ Generac rate-limits per account and has publicly objected to third-party polling
 One `PlatformAccessory` per generator, UUID from `homebridge-generac:generator:{apparatusId}`. Display name = `generators[].name` override if present, else the Mobile Link name.
 
 Services:
-1. AccessoryInformation: Manufacturer "Generac", Model = productInfo Description (e.g. "22KW/999 GUARD-NO T/SW AL") else `modelNumber`, SerialNumber, FirmwareRevision = plugin version.
+1. AccessoryInformation: Manufacturer "Generac", Model = productInfo Description (e.g. "22KW/999 GUARD-NO T/SW AL") else `modelNumber`, SerialNumber, FirmwareRevision = the numeric part of the plugin version ("0.1.0" for "0.1.0-beta.1"), since HAP truncates pre-release suffixes.
 2. ContactSensor subtype `running`, name "{Name} Running". Open (CONTACT_NOT_DETECTED) while `running`.
 3. ContactSensor subtype `fault`, name "{Name} Fault". Open while `fault`.
 4. ContactSensor subtype `maintenance`, name "{Name} Maintenance Due". Open while `maintenanceDue`.
 5. Battery: BatteryLevel, StatusLowBattery, ChargingState NOT_CHARGEABLE.
+6. ContactSensor subtype `exercising`, name "{Name} Exercising", created when `exerciseSensor` is true. Opens when a poll observes status 3, or when `lastExerciseAt` changes to a newer value than the one persisted in state.json (retroactive). Stays open until both the status has left 3 and `exerciseHoldMinutes` have elapsed since the last trigger. On first run the current `lastExerciseAt` is recorded without opening the sensor.
 
 Every contact sensor carries `StatusActive` (= `connected`, and false after three consecutive poll failures) and `StatusFault` (= `fault`). ConfiguredName is set once and never overwritten so the user's Home app renames stick.
 
@@ -141,6 +144,7 @@ Not an Outlet, Switch or any other service. Rationale in README.
 - On any other failure: exponential backoff with ±20% jitter starting at the active interval, capped at 30 minutes. After three consecutive failures, sensors report StatusActive false.
 - On `invalid_grant`: Reconnect needed state, retry hourly.
 - A poll is triggered immediately when credentials appear or change on disk.
+- Exercise watch window: when `exerciseTime` is set (or derivable from the API), poll at the active interval from 2 minutes before it until 20 minutes after it, every day, in the host's local time zone.
 
 ## 9. Configuration (config.json)
 
@@ -154,6 +158,9 @@ Not an Outlet, Switch or any other service. Rationale in README.
   "faultOnStopped": true,
   "faultOnDisconnected": false,
   "attentionSensor": false,
+  "exerciseSensor": true,
+  "exerciseTime": "10:00",
+  "exerciseHoldMinutes": 5,
   "debug": false,
   "credentialsPath": "",
   "generators": [
@@ -162,7 +169,7 @@ Not an Outlet, Switch or any other service. Rationale in README.
 }
 ```
 
-No secrets in config.json. `generators[]` holds only display-name overrides and is written by the settings page's Rename. Unknown ids are ignored. `credentialsPath` is Advanced-only and absent from the settings page.
+No secrets in config.json. `generators[]` holds only display-name overrides and is written by the settings page's Rename. Unknown ids are ignored. `credentialsPath` is Advanced-only and absent from the settings page. `exerciseTime` is a 24-hour "HH:MM" string and optional; when absent the API's Exercise Minutes value is used as the default.
 
 `config.schema.json` mirrors these keys with the labels and help from 11.3 and sets `customUi: true` once build 2 lands.
 
@@ -172,12 +179,13 @@ No secrets in config.json. `generators[]` holds only display-name overrides and 
 
 | endpoint | request | response |
 |---|---|---|
-| `/status` | none | `{ account: { state: "not_connected" \| "checking" \| "connected" \| "reconnect_needed", email?, lastChecked? }, generators: [GeneratorState], others: [{ type, name }] }` |
+| `/status` | none | `{ account: { state: "not_connected" \| "checking" \| "connected" \| "reconnect_needed", email?, lastChecked? }, generators: [GeneratorState], others: [{ type, name }] }`. `checking` when credentials exist but state.json has no account entry newer than the credentials' `created_at`. |
 | `/connect/start` | `{ email, password }` | `{ step: "code", method: "sms" \| "otp" \| "email" }` or `{ step: "done" }` or `{ error: "wrong_password" \| "unknown_email" \| "unsupported_factor" \| "network" }` |
 | `/connect/code` | `{ code }` | `{ step: "done" }` or `{ error: "wrong_code" \| "too_many" \| "expired" }` |
 | `/connect/cancel` | none | `{ ok: true }` |
-| `/disconnect` | none | `{ ok: true }` (deletes credentials.json) |
-| `/rename` | `{ apparatusId, name }` | `{ ok: true }` (writes `generators[]` through the host config API) |
+| `/disconnect` | none | `{ ok: true }` (deletes credentials.json and clears the account section of state.json) |
+
+Rename does not go through the server: it edits `generators[]` in the page through `homebridge.getPluginConfig()` and `updatePluginConfig()`; the host's SAVE persists it.
 
 The login runs inside the UI server process. `/connect/start` calls `login()` with an `mfaPrompt` that returns a promise resolved by the next `/connect/code`. The pending login expires after 5 minutes (`expired`). The password is held in memory for the duration of `login()` and never written or logged. On success the server writes credentials.json; the platform picks it up within 60 s (section 4.4).
 
@@ -257,7 +265,7 @@ Generac additions:
 - Status badges: `Ready to run` (or Generac's `statusLabel` when present), `Running`, `Exercising`, `Fault`, `Not responding`
 - Fault reasons, one per line, from `faultReasons` rendered as: `Switch in OFF`, `{n} active alarm(s)`, `{n} active warning(s)`, `Alarm code {code}`, `Warning status`, `Lost connection`
 - Not responding note: `Mobile Link hasn't heard from this generator since {time}.`
-- Rows: `Battery` `{volts} V` with badge `Low` at or below threshold; `Fuel` `{percent}%` with help `Propane models only` (row hidden on non-propane units); `Engine hours` `{n} h`; `Exercise time` `{time} weekly`; `Last seen` `{relative time}`
+- Rows: `Battery` `{volts} V` with badge `Low` at or below threshold; `Fuel` `{percent}%` with help `Propane models only` (row hidden on non-propane units); `Engine hours` `{n} h`; `Exercise time` `{time} weekly` (the configured `exerciseTime`, 12-hour, else the API value); `Last exercise` `{date} at {time}`; `Last seen` `{relative time}`
 - Footer button: `Rename`. Inline field label `Name`, buttons `Save name`, `Cancel`. Required message `Name is required.`
 - Also lines: `Also on your account: Propane tank monitor (tank level support is coming).` and `Also on your account: ecobee thermostat "{name}" (already in HomeKit, skipped).`
 
@@ -269,6 +277,9 @@ Generac additions:
 - `Treat Stopped as a fault` default on, help `Stopped means the control switch is in OFF and the generator won't start during an outage.`
 - `Treat a lost connection as a fault` default off, help `Off by default. Wi-Fi drops are common and the sensors already show Not responding.`
 - `Attention needed sensor` default off, help `Adds an occupancy sensor to HomeKit that turns on when the plugin needs you to reconnect.`
+- `Exercising sensor` default on, help `Adds a sensor that opens while the weekly exercise runs, or when Mobile Link reports one finished. Use it to confirm the generator exercised this week.`
+- `Exercise time` (HH:MM, 24-hour, optional) help `When your generator's weekly exercise starts. Prefilled from Mobile Link; correct it if your unit starts at a different time. The plugin checks more often around this time every day.` Error `Enter a time as HH:MM, for example 10:00.`
+- `Exercise hold (minutes)` default 5, min 1, help `How long the Exercising sensor stays open after an exercise is detected.` Error `Minimum is 1 minute.`
 - `Debug logging` default off, help `Verbose logging. Your password is never logged, even with this on.`
 - Reset dialog lines: `Signs out of Mobile Link and removes the saved sign-in.`, `Removes every generator and its sensors from the Home app.`, `Clears all settings on this page.`
 
@@ -279,6 +290,7 @@ Generac additions:
 - Error: `invalid_grant` once per episode with the reconnect instruction.
 - Debug (when `debug`): auth step redirects (truncated), token refresh events, per-poll timing.
 - Never: passwords, refresh tokens, access tokens, DPoP keys, MFA codes, full HTML bodies.
+- Captures (when `debug`): on any status change or a new `lastExerciseAt`, the raw details payload is written to `<storagePath>/homebridge-generac/captures/{ISO timestamp with colons replaced by dashes}-status{n}.json`, keeping the newest 10.
 
 ## 13. Assets and branding
 
@@ -297,7 +309,7 @@ Open item: the mark colour is #E8862B, which is close to Generac's brand orange.
 ## 15. Release plan
 
 1. Build 1: source, tooling, CLAUDE.md, release workflow, tests, version 0.1.0-beta.1. Pi test via symlink from the Homebridge web terminal.
-2. Build 2: state file, UI server, settings page, `customUi`, Attention needed sensor, Rename. Chrome pass on the Pi in both themes and at phone width.
+2. Build 2: state file consumer, UI server, settings page, `customUi`, Rename, Exercising sensor with watch window and retroactive detection, captures. Chrome pass on the Pi in both themes and at phone width.
 3. Build 3: README with masked screenshots, banner, CHANGELOG, GitHub pre-release `v0.1.0-beta.1` published to npm `beta` with provenance via trusted publishing.
 4. Soak, then r/homebridge tester post, then `1.0.0`, then the Homebridge verification issue (keywords must include `supports-hap`).
 5. 0.2.0: propane tank monitors.
@@ -309,7 +321,9 @@ Open item: the mark colour is #E8862B, which is close to Generac's brand orange.
 - 2026-09-15: Idle poll default 10 minutes (HA project settled on 15; Generac's cloud updates every few minutes). Active poll 90 s.
 - 2026-09-15: Keep by property `type`, not `name`.
 - 2026-09-15: Rename kept from Design; "hide sensors" dropped.
+- 2026-09-15: Exercise time is a setting prefilled from the API, not derived from it (API said 10:05, unit starts at 10:00). Exercise detection is primarily retroactive via the eventType 42 timestamp; the watch window makes live detection likely rather than lucky.
 - Open: fuel type enum values 2 and 3 are presumed. Confirm on a propane unit.
 - Open: `tuProperties` shape for tank monitors. Needs a type-2 fixture from a tester.
 - Open: icon colour (section 13).
+- Open: confirm eventType 42 is the exercise-complete event, and whether live status during the cycle is 3 or 2. First capture expected Saturday, September 19, 2026.
 - Open: whether the Homebridge verification bot accepts a plugin whose `homebridge-ui` has no `public/index.html` until build 2 lands (it should; verification is after 1.0.0).
