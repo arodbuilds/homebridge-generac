@@ -1,0 +1,44 @@
+name: Release
+
+# Publishes to npm when a GitHub release is published. Uses npm trusted
+# publishing (OIDC) with provenance, so no npm token secret is needed. The
+# npm package must have this repository and workflow registered as a trusted
+# publisher on npmjs.com.
+#
+# A release marked as a pre-release is published under the `beta` dist-tag;
+# a release marked as latest is published under `latest`.
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Use Node.js 20
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+          cache: npm
+
+      # Trusted publishing needs npm 11.5.1 or newer; Node 20 ships npm 10.
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint, build and test
+        run: npm test
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public --tag ${{ github.event.release.prerelease && 'beta' || 'latest' }}
