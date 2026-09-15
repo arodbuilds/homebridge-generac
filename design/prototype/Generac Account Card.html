@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mobile Link account card states</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/colors.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/typography.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/base.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/styles.css">
+<script src="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/_ds_bundle.js"></script>
+<style>
+html.dark-mode{--bs-body-bg:#1c1c1c;--bs-body-color:#ffffff;--bs-secondary-color:rgba(222,226,230,.75);--bs-tertiary-color:rgba(222,226,230,.5);--bs-border-color:#495057;--bs-border-color-translucent:rgba(255,255,255,.15);--bs-secondary-bg:#343a40;--bs-link-color:#6ea8fe;--bs-link-hover-color:#8bb9fe;--bs-warning-bg-subtle:#3a3524;--bs-warning-text-emphasis:#ffe69c;--bs-card-cap-bg:#262626;--bs-success-bg-subtle:#051b11;--bs-success-border-subtle:#0f5132;--bs-success-text-emphasis:#75b798;--bs-danger-bg-subtle:#2c0b0e;--bs-danger-border-subtle:#842029;--bs-danger-text-emphasis:#ea868f;--bs-info-bg-subtle:#032830;--bs-info-border-subtle:#087990;--bs-info-text-emphasis:#6edff6;--bs-focus-ring-color:rgba(110,168,254,.25)}
+.gn-page{max-width:800px;margin:0 auto;padding:16px;overflow-wrap:anywhere}
+.gn-title{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.gn-state{font-size:var(--text-help-size);color:var(--ns-secondary);margin:0 0 8px}
+.gn-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:0 0 8px}
+.gn-email{font-family:var(--font-mono);font-size:var(--text-body-size)}
+.gn-meta{color:var(--ns-secondary);font-size:var(--text-help-size);margin:0 0 4px}
+.gn-body{margin:0 0 12px}
+.gn-body:last-child{margin-bottom:0}
+.gn-warn-badge{display:inline-block;font-size:var(--text-badge-size);font-weight:var(--text-badge-weight);line-height:1;padding:3px 7px;border-radius:var(--radius-badge);background:var(--ns-warnbg);border:1px solid var(--ns-warnborder);color:var(--ns-warntext);vertical-align:middle;white-space:nowrap}
+.gn-checking{display:inline-block;font-size:var(--text-badge-size);font-weight:var(--text-badge-weight);line-height:1;padding:3px 7px;border-radius:var(--radius-badge);border:1px solid var(--ns-badge);color:var(--ns-badge);vertical-align:middle;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+(function(){var q=new URLSearchParams(location.search);if(q.get('theme')==='dark'){document.body.classList.add('dark-mode');document.documentElement.classList.add('dark-mode')}
+function post(){var h=document.body.scrollHeight;if(window.parent!==window&&h>100)window.parent.postMessage({type:'gn-height',id:q.get('id'),height:h+10},'*')}
+window.addEventListener('load',function(){post();new ResizeObserver(post).observe(document.getElementById('root'));var n=0,t=setInterval(function(){post();if(++n>20)clearInterval(t)},250)});})();
+</script>
+<script type="text/babel">
+const { Card, Button, InlineConfirm } = window.HomebridgePluginShell_fcc948;
+const q = new URLSearchParams(location.search);
+const attention = q.get('attention') !== '0';
+
+function NotConnected() {
+  return (
+    <Card title="Mobile Link account">
+      <p className="gn-body">Sign in once with your Mobile Link email and password. Your password is used to sign in and is not stored.</p>
+      <Button variant="add">Connect</Button>
+    </Card>
+  );
+}
+function Checking() {
+  return (
+    <Card title={<span className="gn-title">Mobile Link account <span className="gn-checking">Checking</span></span>}>
+      <p className="gn-body">Sign in once with your Mobile Link email and password. Your password is used to sign in and is not stored.</p>
+      <Button variant="add" disabled>Connect</Button>
+    </Card>
+  );
+}
+function Connected() {
+  return (
+    <Card title="Mobile Link account" statusBadges={['Connected']} footerRight={<InlineConfirm label="Disconnect" startVariant="link" question="Disconnect this account? The plugin will stop updating your generators until you connect again." confirmLabel="Disconnect" confirmVariant="danger" cancelLabel="Keep" />}>
+      <div className="gn-row"><span className="gn-email">alex@example.com</span></div>
+      <p className="gn-meta" style={{ margin: 0 }}>Last checked 2 minutes ago</p>
+    </Card>
+  );
+}
+function ConnectedOpen() {
+  const [open, setOpen] = React.useState(true);
+  return (
+    <Card title="Mobile Link account" statusBadges={['Connected']} footerRight={open ? (
+      <span style={{ display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: 'var(--text-help-size)' }}>Disconnect this account? The plugin will stop updating your generators until you connect again.</span>
+        <Button variant="danger" onClick={() => setOpen(false)}>Disconnect</Button>
+        <Button variant="link" onClick={() => setOpen(false)}>Keep</Button>
+      </span>) : <Button variant="link" onClick={() => setOpen(true)}>Disconnect</Button>}>
+      <div className="gn-row"><span className="gn-email">alex@example.com</span></div>
+      <p className="gn-meta" style={{ margin: 0 }}>Last checked 2 minutes ago</p>
+    </Card>
+  );
+}
+function Reconnect() {
+  return (
+    <Card title={<span className="gn-title">Mobile Link account <span className="gn-warn-badge">Reconnect needed</span></span>}>
+      <div className="gn-row"><span className="gn-email">alex@example.com</span></div>
+      <p className="gn-body">Mobile Link signed this plugin out. This happens after a password change or if Generac revokes access. Sign in again to resume updates.</p>
+      {attention && <p className="gn-body">The Attention needed sensor is on in HomeKit until you reconnect.</p>}
+      <Button variant="add">Reconnect</Button>
+    </Card>
+  );
+}
+
+const states = [
+  ['Not connected (first run)', <NotConnected />],
+  ['Checking (on page load)', <Checking />],
+  ['Connected', <Connected />],
+  ['Connected, Disconnect pressed', <ConnectedOpen />],
+  ['Reconnect needed' + (attention ? ', Attention needed sensor on' : ''), <Reconnect />],
+];
+function Page() {
+  return (
+    <div className="gn-page" data-screen-label="Account card states">
+      {states.map(([name, el], i) => <div key={i} style={{ marginBottom: i < states.length - 1 ? '24px' : 0 }}><p className="gn-state">{name}</p>{el}</div>)}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Page />);
+</script>
+</body>
+</html>

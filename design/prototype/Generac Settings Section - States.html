@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="design_doc_mode" content="canvas">
+<title>Settings section states</title>
+<style>
+body{margin:0;font-family:system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+.frame{position:absolute;display:flex;flex-direction:column;gap:8px}
+.frame span{font-size:13px;color:#5f5e5a;font-weight:500}
+.frame iframe{border:1px solid rgba(0,0,0,.176);border-radius:8px;background:#fff;display:block}
+.frame.dark iframe{background:#1c1c1c;border-color:rgba(255,255,255,.15)}
+</style>
+</head>
+<body>
+<div class="frame" style="left:40px;top:40px"><span>Desktop · light · 800px modal</span><iframe id="dl" title="Desktop light" src="Generac Settings Section.html?id=dl" width="800" height="1600" scrolling="no"></iframe></div>
+<div class="frame dark" style="left:900px;top:40px"><span>Desktop · dark · 800px modal</span><iframe id="dd" title="Desktop dark" src="Generac Settings Section.html?id=dd&theme=dark" width="800" height="1600" scrolling="no"></iframe></div>
+<div class="frame" style="left:1760px;top:40px"><span>Phone · light · 390px</span><iframe id="pl" title="Phone light" src="Generac Settings Section.html?id=pl" width="390" height="2400" scrolling="no"></iframe></div>
+<div class="frame dark" style="left:2210px;top:40px"><span>Phone · dark · 390px</span><iframe id="pd" title="Phone dark" src="Generac Settings Section.html?id=pd&theme=dark" width="390" height="2400" scrolling="no"></iframe></div>
+<script>
+window.addEventListener('message',function(e){var d=e.data||{};if(d.type!=='gn-height'||!d.id)return;var f=document.getElementById(d.id);if(f)f.height=Math.ceil(d.height)});
+</script>
+</body>
+</html>

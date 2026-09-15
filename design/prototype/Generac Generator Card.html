@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generator card states</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/colors.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/typography.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/base.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/styles.css">
+<script src="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/_ds_bundle.js"></script>
+<style>
+html.dark-mode{--bs-body-bg:#1c1c1c;--bs-body-color:#ffffff;--bs-secondary-color:rgba(222,226,230,.75);--bs-tertiary-color:rgba(222,226,230,.5);--bs-border-color:#495057;--bs-border-color-translucent:rgba(255,255,255,.15);--bs-secondary-bg:#343a40;--bs-link-color:#6ea8fe;--bs-link-hover-color:#8bb9fe;--bs-warning-bg-subtle:#3a3524;--bs-warning-text-emphasis:#ffe69c;--bs-card-cap-bg:#262626;--bs-success-bg-subtle:#051b11;--bs-success-border-subtle:#0f5132;--bs-success-text-emphasis:#75b798;--bs-danger-bg-subtle:#2c0b0e;--bs-danger-border-subtle:#842029;--bs-danger-text-emphasis:#ea868f;--bs-info-bg-subtle:#032830;--bs-info-border-subtle:#087990;--bs-info-text-emphasis:#6edff6;--bs-focus-ring-color:rgba(110,168,254,.25)}
+.gn-page{max-width:800px;margin:0 auto;padding:16px;overflow-wrap:anywhere}
+.gn-state{font-size:var(--text-help-size);color:var(--ns-secondary);margin:0 0 8px}
+.gn-title{display:inline-flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.gn-model{display:block;font-weight:400;font-size:var(--text-help-size);color:inherit;line-height:1.4}
+.gn-serial{display:block;font-weight:300;font-size:var(--text-help-size);color:var(--ns-secondary);font-family:var(--font-mono);line-height:1.4}
+.gn-badge{display:inline-block;font-size:var(--text-badge-size);font-weight:var(--text-badge-weight);line-height:1;padding:3px 7px;border-radius:var(--radius-badge);vertical-align:middle;white-space:nowrap;border:1px solid transparent}
+.gn-badge-ready{background:var(--ns-success);border-color:var(--ns-success);color:#fff}
+.gn-badge-running{background:var(--ns-primary);border-color:var(--ns-primary);color:var(--ns-button-fg)}
+.gn-badge-exercising{border-color:var(--ns-primary);color:var(--ns-primary)}
+.gn-badge-fault{background:var(--ns-danger);border-color:var(--ns-danger);color:#fff}
+.gn-badge-muted{border-color:var(--ns-badge);color:var(--ns-badge)}
+.gn-badge-warn{background:var(--ns-warnbg);border-color:var(--ns-warnborder);color:var(--ns-warntext)}
+.gn-status{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0 0 12px}
+.gn-reasons{display:flex;flex-wrap:wrap;gap:4px 12px;margin:0;padding:0;list-style:none}
+.gn-reasons li{color:var(--ns-secondary)}
+.gn-reasons li+li::before{content:'·';margin-right:12px}
+.gn-kv{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);column-gap:16px;row-gap:6px;margin:0 0 16px;padding-top:12px;border-top:1px solid var(--ns-border)}
+.gn-kv dt{color:var(--ns-secondary);margin:0}
+.gn-kv dd{margin:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+.gn-kv .gn-help{font-size:var(--text-help-size);color:var(--ns-secondary);font-weight:300}
+.gn-also{color:var(--ns-secondary);margin:0 0 8px}
+.gn-also:last-child{margin-bottom:0}
+@media (max-width:599px){.gn-kv{grid-template-columns:minmax(0,1fr);row-gap:2px}.gn-kv dd{margin-bottom:8px}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+(function(){var q=new URLSearchParams(location.search);if(q.get('theme')==='dark'){document.body.classList.add('dark-mode');document.documentElement.classList.add('dark-mode')}
+function post(){var h=document.body.scrollHeight;if(window.parent!==window&&h>100)window.parent.postMessage({type:'gn-height',id:q.get('id'),height:h+10},'*')}
+window.addEventListener('load',function(){post();new ResizeObserver(post).observe(document.getElementById('root'));var n=0,t=setInterval(function(){post();if(++n>20)clearInterval(t)},250)});})();
+</script>
+<script type="text/babel">
+const { Card, Button } = window.HomebridgePluginShell_fcc948;
+const q = new URLSearchParams(location.search);
+const only = q.get('state');
+
+const B = ({ kind, children }) => <span className={'gn-badge gn-badge-' + kind}>{children}</span>;
+
+function Title({ maintenance }) {
+  return (
+    <span>
+      <span className="gn-title">Blue Door{maintenance && <B kind="warn">Maintenance due</B>}</span>
+      <span className="gn-model">22KW/999 GUARD-NO T/SW AL</span>
+      <span className="gn-serial">S/N 3000000001</span>
+    </span>
+  );
+}
+function Generator({ status, reasons, note, maintenance, battery = '13.6 V', low, fuel = '62%', lastSeen = '2 minutes ago' }) {
+  return (
+    <Card title={<Title maintenance={maintenance} />} footerRight={<Button variant="footer">Rename</Button>}>
+      <div className="gn-status">
+        {status}
+        {reasons && <ul className="gn-reasons">{reasons.map((r) => <li key={r}>{r}</li>)}</ul>}
+        {note && <span style={{ color: 'var(--ns-secondary)' }}>{note}</span>}
+      </div>
+      <dl className="gn-kv">
+        <dt>Battery</dt><dd>{battery}{low && <B kind="warn">Low</B>}</dd>
+        {fuel && <React.Fragment><dt>Fuel</dt><dd>{fuel}<span className="gn-help">Propane models only</span></dd></React.Fragment>}
+        <dt>Engine hours</dt><dd>17 h</dd>
+        <dt>Exercise time</dt><dd>10:05 AM weekly</dd>
+        <dt>Last seen</dt><dd>{lastSeen}</dd>
+      </dl>
+    </Card>
+  );
+}
+
+const states = [
+  ['ready', 'Ready', <Generator status={<B kind="ready">Ready to run</B>} />],
+  ['running', 'Running', <Generator status={<B kind="running">Running</B>} />],
+  ['exercising', 'Exercising, with Maintenance due', <Generator status={<B kind="exercising">Exercising</B>} maintenance />],
+  ['fault', 'Fault, natural gas unit (no Fuel row), low battery', <Generator status={<B kind="fault">Fault</B>} reasons={['Switch in OFF', '1 active alarm']} fuel={null} battery="11.9 V" low />],
+  ['offline', 'Not responding', <Generator status={<B kind="muted">Not responding</B>} note="Mobile Link hasn't heard from this generator since 3:15 PM." lastSeen="3:15 PM" />],
+];
+const shown = only ? states.filter((s) => s[0] === only) : states;
+
+function Page() {
+  return (
+    <div className="gn-page" data-screen-label="Generator card states">
+      {shown.map(([key, name, el], i) => <div key={key} style={{ marginBottom: '24px' }}><p className="gn-state">{name}</p>{el}</div>)}
+      <p className="gn-state">Other devices on the account, two variants</p>
+      <p className="gn-also">Also on your account: Propane tank monitor (tank level support is coming).</p>
+      <p className="gn-also">Also on your account: ecobee thermostat "Main Level" (already in HomeKit, skipped).</p>
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Page />);
+</script>
+</body>
+</html>

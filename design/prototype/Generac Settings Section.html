@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings section</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/colors.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/typography.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/tokens/base.css">
+<link rel="stylesheet" href="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/styles.css">
+<script src="_ds/homebridge-plugin-shell-fcc948b5-b88a-489d-bb24-a694a32f01d6/_ds_bundle.js"></script>
+<style>
+html.dark-mode{--bs-body-bg:#1c1c1c;--bs-body-color:#ffffff;--bs-secondary-color:rgba(222,226,230,.75);--bs-tertiary-color:rgba(222,226,230,.5);--bs-border-color:#495057;--bs-border-color-translucent:rgba(255,255,255,.15);--bs-secondary-bg:#343a40;--bs-link-color:#6ea8fe;--bs-link-hover-color:#8bb9fe;--bs-warning-bg-subtle:#3a3524;--bs-warning-text-emphasis:#ffe69c;--bs-card-cap-bg:#262626;--bs-success-bg-subtle:#051b11;--bs-success-border-subtle:#0f5132;--bs-success-text-emphasis:#75b798;--bs-danger-bg-subtle:#2c0b0e;--bs-danger-border-subtle:#842029;--bs-danger-text-emphasis:#ea868f;--bs-info-bg-subtle:#032830;--bs-info-border-subtle:#087990;--bs-info-text-emphasis:#6edff6;--bs-focus-ring-color:rgba(110,168,254,.25)}
+.gn-page{max-width:800px;margin:0 auto;padding:16px;overflow-wrap:anywhere}
+.gn-state{font-size:var(--text-help-size);color:var(--ns-secondary);margin:0 0 8px}
+.gn-h2{margin:0 0 8px;padding:0 0 4px;font-size:20px;font-weight:300;line-height:1.2;border-bottom:1px solid var(--ns-border)}
+.gn-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:8px}
+.gn-span12{grid-column:span 12}.gn-span6{grid-column:span 6}.gn-span4{grid-column:span 4}
+@media (max-width:599px){.gn-span6,.gn-span4{grid-column:span 12}}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+(function(){var q=new URLSearchParams(location.search);if(q.get('theme')==='dark'){document.body.classList.add('dark-mode');document.documentElement.classList.add('dark-mode')}
+function post(){var h=document.body.scrollHeight;if(window.parent!==window&&h>100)window.parent.postMessage({type:'gn-height',id:q.get('id'),height:h+10},'*')}
+window.addEventListener('load',function(){post();new ResizeObserver(post).observe(document.getElementById('root'));var n=0,t=setInterval(function(){post();if(++n>20)clearInterval(t)},250)});})();
+</script>
+<script type="text/babel">
+const { TextField, CheckField, Disclosure } = window.HomebridgePluginShell_fcc948;
+const q = new URLSearchParams(location.search);
+const only = q.get('state');
+
+function Settings({ open, invalid, k }) {
+  return (
+    <div>
+      <h2 className="gn-h2">Settings</h2>
+      <Disclosure defaultOpen={open}>
+        <div className="gn-grid">
+          <div className="gn-span6"><TextField id={k + '-name'} label="Name" required defaultValue="Generac" /></div>
+          <div className="gn-span6"></div>
+          <div className="gn-span6"><TextField id={k + '-idle'} label="Poll interval while idle (minutes)" type="number" min={2} defaultValue={invalid ? '1' : '10'} error={invalid ? 'Minimum is 2 minutes.' : undefined} help="Mobile Link updates every few minutes and limits how often you can check. Faster than this rarely helps." /></div>
+          <div className="gn-span6"><TextField id={k + '-active'} label="Poll interval while running or in fault (seconds)" type="number" min={60} defaultValue={invalid ? '30' : '90'} error={invalid ? 'Minimum is 60 seconds.' : undefined} help="Used while a generator is running, exercising, or reporting a problem." /></div>
+          <div className="gn-span6"><TextField id={k + '-batt'} label="Low battery threshold (volts)" type="number" defaultValue="12.0" help="A healthy starting battery on charge reads 13.4 to 13.8 V." /></div>
+          <div className="gn-span12"><CheckField id={k + '-stopped'} label="Treat Stopped as a fault" defaultChecked help="Stopped means the control switch is in OFF and the generator won't start during an outage." /></div>
+          <div className="gn-span12"><CheckField id={k + '-lost'} label="Treat a lost connection as a fault" help="Off by default. Wi-Fi drops are common and the sensors already show Not responding." /></div>
+          <div className="gn-span12"><CheckField id={k + '-attention'} label="Attention needed sensor" help="Adds an occupancy sensor to HomeKit that turns on when the plugin needs you to reconnect." /></div>
+          <div className="gn-span12"><CheckField id={k + '-debug'} label="Debug logging" /></div>
+        </div>
+      </Disclosure>
+    </div>
+  );
+}
+
+const states = [
+  ['collapsed', 'Collapsed (default)', <Settings k="c" />],
+  ['expanded', 'Expanded', <Settings k="e" open />],
+  ['invalid', 'Expanded, out-of-range poll intervals', <Settings k="i" open invalid />],
+];
+const shown = only ? states.filter((s) => s[0] === only) : states;
+function Page() {
+  return (
+    <div className="gn-page" data-screen-label="Settings section">
+      {shown.map(([key, name, el], i) => <div key={key} style={{ marginBottom: i < shown.length - 1 ? '32px' : 0 }}><p className="gn-state">{name}</p>{el}</div>)}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<Page />);
+</script>
+</body>
+</html>

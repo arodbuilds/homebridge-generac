@@ -1,0 +1,537 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "components/actions/**",
+              "components/fields/**",
+              "components/shell/**",
+              "ui_kits/notify-switch/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute > JSXIdentifier[name!=/^(?:kind|children|key|ref|className|style|children)$/]",
+        "message": "<Badge> doesn't accept that prop. Declared props: kind, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='kind'] > Literal[value!=/^(?:type|status)$/]",
+        "message": "<Badge> kind must be one of 'type' | 'status'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Banner'] > JSXAttribute > JSXIdentifier[name!=/^(?:src|alt|key|ref|className|style|children)$/]",
+        "message": "<Banner> doesn't accept that prop. Declared props: src, alt."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Block'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|help|children|captionBelow|style|key|ref|className|style|children)$/]",
+        "message": "<Block> doesn't accept that prop. Declared props: label, help, children, captionBelow, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute > JSXIdentifier[name!=/^(?:variant|children|disabled|onClick|href|attached|title|style|key|ref|className|style|children)$/]",
+        "message": "<Button> doesn't accept that prop. Declared props: variant, children, disabled, onClick, href, attached, title, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:add|outline|footer|danger|link|dangerLink|secondaryLink)$/]",
+        "message": "<Button> variant must be one of 'add' | 'outline' | 'footer' | 'danger' | 'link' | 'dangerLink' | 'secondaryLink'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Card'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|id|noun|typeBadge|statusBadges|headerActions|children|result|onDismissResult|footerLeft|footerRight|helpDefault|onHelpToggle|style|key|ref|className|style|children)$/]",
+        "message": "<Card> doesn't accept that prop. Declared props: title, id, noun, typeBadge, statusBadges, headerActions, children, result, onDismissResult, footerLeft, footerRight, helpDefault, onHelpToggle, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='CheckField'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|checked|defaultChecked|onChange|help|helpLink|helpLinkHref|disabled|compact|dim|style|key|ref|className|style|children)$/]",
+        "message": "<CheckField> doesn't accept that prop. Declared props: id, label, checked, defaultChecked, onChange, help, helpLink, helpLinkHref, disabled, compact, dim, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ChooserTiles'] > JSXAttribute > JSXIdentifier[name!=/^(?:tiles|onPick|narrow|key|ref|className|style|children)$/]",
+        "message": "<ChooserTiles> doesn't accept that prop. Declared props: tiles, onPick, narrow."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='CreditFooter'] > JSXAttribute > JSXIdentifier[name!=/^(?:mark|markSrc|name|version|author|site|siteUrl|issuesUrl|key|ref|className|style|children)$/]",
+        "message": "<CreditFooter> doesn't accept that prop. Declared props: mark, markSrc, name, version, author, site, siteUrl, issuesUrl."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Disclosure'] > JSXAttribute > JSXIdentifier[name!=/^(?:summary|defaultOpen|open|onToggle|children|style|key|ref|className|style|children)$/]",
+        "message": "<Disclosure> doesn't accept that prop. Declared props: summary, defaultOpen, open, onToggle, children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='DraftBar'] > JSXAttribute > JSXIdentifier[name!=/^(?:message|onRestore|onDiscard|key|ref|className|style|children)$/]",
+        "message": "<DraftBar> doesn't accept that prop. Declared props: message, onRestore, onDiscard."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Field'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|required|labelExtra|help|helpLink|helpLinkHref|error|children|style|className|key|ref|className|style|children)$/]",
+        "message": "<Field> doesn't accept that prop. Declared props: id, label, required, labelExtra, help, helpLink, helpLinkHref, error, children, style, className."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Grid'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|rowGap|style|key|ref|className|style|children)$/]",
+        "message": "<Grid> doesn't accept that prop. Declared props: children, rowGap, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='HelpText'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|link|linkHref|style|key|ref|className|style|children)$/]",
+        "message": "<HelpText> doesn't accept that prop. Declared props: children, link, linkHref, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='InlineConfirm'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|question|confirmLabel|confirmVariant|startVariant|cancelLabel|onConfirm|disabled|title|key|ref|className|style|children)$/]",
+        "message": "<InlineConfirm> doesn't accept that prop. Declared props: label, question, confirmLabel, confirmVariant, startVariant, cancelLabel, onConfirm, disabled, title."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='InlineConfirm'] > JSXAttribute[name.name='confirmVariant'] > Literal[value!=/^(?:danger|footer|add)$/]",
+        "message": "<InlineConfirm> confirmVariant must be one of 'danger' | 'footer' | 'add'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='InlineConfirm'] > JSXAttribute[name.name='startVariant'] > Literal[value!=/^(?:dangerLink|footer|link)$/]",
+        "message": "<InlineConfirm> startVariant must be one of 'dangerLink' | 'footer' | 'link'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='IssuesSummary'] > JSXAttribute > JSXIdentifier[name!=/^(?:issues|collapseAfter|style|key|ref|className|style|children)$/]",
+        "message": "<IssuesSummary> doesn't accept that prop. Declared props: issues, collapseAfter, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ListField'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|required|items|onChange|addLabel|placeholder|help|helpLink|helpLinkHref|error|style|key|ref|className|style|children)$/]",
+        "message": "<ListField> doesn't accept that prop. Declared props: id, label, required, items, onChange, addLabel, placeholder, help, helpLink, helpLinkHref, error, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Modal'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|open|wide|onClose|children|actions|key|ref|className|style|children)$/]",
+        "message": "<Modal> doesn't accept that prop. Declared props: title, open, wide, onClose, children, actions."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Note'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|link|linkHref|style|key|ref|className|style|children)$/]",
+        "message": "<Note> doesn't accept that prop. Declared props: children, link, linkHref, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='PasswordField'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|required|value|defaultValue|onChange|placeholder|help|helpLink|helpLinkHref|error|valid|style|key|ref|className|style|children)$/]",
+        "message": "<PasswordField> doesn't accept that prop. Declared props: id, label, required, value, defaultValue, onChange, placeholder, help, helpLink, helpLinkHref, error, valid, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Preview'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|style|key|ref|className|style|children)$/]",
+        "message": "<Preview> doesn't accept that prop. Declared props: children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='QrBlock'] > JSXAttribute > JSXIdentifier[name!=/^(?:url|code|caption|shareText|openLabel|narrow|size|key|ref|className|style|children)$/]",
+        "message": "<QrBlock> doesn't accept that prop. Declared props: url, code, caption, shareText, openLabel, narrow, size."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='ResetDialog'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|title|lines|onDownloadBackup|onConfirm|disabled|key|ref|className|style|children)$/]",
+        "message": "<ResetDialog> doesn't accept that prop. Declared props: label, title, lines, onDownloadBackup, onConfirm, disabled."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='SectionHeading'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|intro|first|key|ref|className|style|children)$/]",
+        "message": "<SectionHeading> doesn't accept that prop. Declared props: title, intro, first."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='SegmentedField'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|options|value|defaultValue|onChange|help|helpLink|helpLinkHref|narrow|style|key|ref|className|style|children)$/]",
+        "message": "<SegmentedField> doesn't accept that prop. Declared props: id, label, options, value, defaultValue, onChange, help, helpLink, helpLinkHref, narrow, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='SelectField'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|required|value|defaultValue|onChange|options|help|helpLink|helpLinkHref|error|valid|readonly|placeholder|style|key|ref|className|style|children)$/]",
+        "message": "<SelectField> doesn't accept that prop. Declared props: id, label, required, value, defaultValue, onChange, options, help, helpLink, helpLinkHref, error, valid, readonly, placeholder, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='StatusBox'] > JSXAttribute > JSXIdentifier[name!=/^(?:tone|children|style|key|ref|className|style|children)$/]",
+        "message": "<StatusBox> doesn't accept that prop. Declared props: tone, children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='StatusBox'] > JSXAttribute[name.name='tone'] > Literal[value!=/^(?:success|warning|danger|info)$/]",
+        "message": "<StatusBox> tone must be one of 'success' | 'warning' | 'danger' | 'info'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Step'] > JSXAttribute > JSXIdentifier[name!=/^(?:number|title|help|children|style|key|ref|className|style|children)$/]",
+        "message": "<Step> doesn't accept that prop. Declared props: number, title, help, children, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='TextareaField'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|required|value|defaultValue|onChange|placeholder|rows|help|helpLink|helpLinkHref|error|valid|labelExtra|counter|style|key|ref|className|style|children)$/]",
+        "message": "<TextareaField> doesn't accept that prop. Declared props: id, label, required, value, defaultValue, onChange, placeholder, rows, help, helpLink, helpLinkHref, error, valid, labelExtra, counter, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='TextField'] > JSXAttribute > JSXIdentifier[name!=/^(?:id|label|required|value|defaultValue|onChange|onBlur|validate|placeholder|type|help|helpLink|helpLinkHref|error|valid|readonly|mono|labelExtra|min|max|style|key|ref|className|style|children)$/]",
+        "message": "<TextField> doesn't accept that prop. Declared props: id, label, required, value, defaultValue, onChange, onBlur, validate, placeholder, type, help, helpLink, helpLinkHref, error, valid, readonly, mono, labelExtra, min, max, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='TextField'] > JSXAttribute[name.name='type'] > Literal[value!=/^(?:text|number|time|email|url|file)$/]",
+        "message": "<TextField> type must be one of 'text' | 'number' | 'time' | 'email' | 'url' | 'file'."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {
+      "Badge": {
+        "replaces": []
+      },
+      "Banner": {
+        "replaces": []
+      },
+      "Block": {
+        "replaces": []
+      },
+      "Button": {
+        "replaces": []
+      },
+      "Card": {
+        "replaces": []
+      },
+      "CheckField": {
+        "replaces": []
+      },
+      "ChooserTiles": {
+        "replaces": []
+      },
+      "CreditFooter": {
+        "replaces": []
+      },
+      "Disclosure": {
+        "replaces": []
+      },
+      "DraftBar": {
+        "replaces": []
+      },
+      "Field": {
+        "replaces": []
+      },
+      "Grid": {
+        "replaces": []
+      },
+      "HelpText": {
+        "replaces": []
+      },
+      "InlineConfirm": {
+        "replaces": []
+      },
+      "IssuesSummary": {
+        "replaces": []
+      },
+      "ListField": {
+        "replaces": []
+      },
+      "Modal": {
+        "replaces": []
+      },
+      "Note": {
+        "replaces": []
+      },
+      "PasswordField": {
+        "replaces": []
+      },
+      "Preview": {
+        "replaces": []
+      },
+      "QrBlock": {
+        "replaces": []
+      },
+      "ResetDialog": {
+        "replaces": []
+      },
+      "SectionHeading": {
+        "replaces": []
+      },
+      "SegmentedField": {
+        "replaces": []
+      },
+      "SelectField": {
+        "replaces": []
+      },
+      "StatusBox": {
+        "replaces": []
+      },
+      "Step": {
+        "replaces": []
+      },
+      "TextareaField": {
+        "replaces": []
+      },
+      "TextField": {
+        "replaces": []
+      }
+    },
+    "tokens": [
+      "--action-danger",
+      "--action-primary",
+      "--banner-ratio",
+      "--border-card",
+      "--border-rule",
+      "--border-width",
+      "--bs-body-bg",
+      "--bs-body-color",
+      "--bs-border-color",
+      "--bs-border-color-translucent",
+      "--bs-card-cap-bg",
+      "--bs-danger-bg-subtle",
+      "--bs-danger-border-subtle",
+      "--bs-danger-text-emphasis",
+      "--bs-focus-ring-color",
+      "--bs-info-bg-subtle",
+      "--bs-info-border-subtle",
+      "--bs-info-text-emphasis",
+      "--bs-link-color",
+      "--bs-link-color-rgb",
+      "--bs-link-hover-color",
+      "--bs-link-hover-color-rgb",
+      "--bs-secondary-bg",
+      "--bs-secondary-color",
+      "--bs-secondary-color-rgb",
+      "--bs-success-bg-subtle",
+      "--bs-success-border-subtle",
+      "--bs-success-text-emphasis",
+      "--bs-tertiary-color",
+      "--bs-warning-bg-subtle",
+      "--bs-warning-text-emphasis",
+      "--button-add-height",
+      "--button-sm-height",
+      "--card-gap",
+      "--card-padding",
+      "--card-strip-padding",
+      "--checkbox-size",
+      "--control-height",
+      "--control-side-padding",
+      "--field-gap",
+      "--font-mono",
+      "--font-sans",
+      "--grid-gap",
+      "--mark-size",
+      "--modal-max-width",
+      "--ns-backdrop",
+      "--ns-badge",
+      "--ns-bg",
+      "--ns-border",
+      "--ns-brand-field",
+      "--ns-brand-mark",
+      "--ns-brand-tagline",
+      "--ns-button-fg",
+      "--ns-cardborder",
+      "--ns-danger",
+      "--ns-dangerbg",
+      "--ns-dangerborder",
+      "--ns-dangertext",
+      "--ns-focus-ring",
+      "--ns-focus-ring-neutral",
+      "--ns-hover-wash",
+      "--ns-infobg",
+      "--ns-infoborder",
+      "--ns-infotext",
+      "--ns-link",
+      "--ns-link-hover",
+      "--ns-locked",
+      "--ns-press-wash",
+      "--ns-primary",
+      "--ns-primary-hover",
+      "--ns-qr-ground",
+      "--ns-secondary",
+      "--ns-subtle",
+      "--ns-success",
+      "--ns-successbg",
+      "--ns-successborder",
+      "--ns-successtext",
+      "--ns-tertiary",
+      "--ns-text",
+      "--ns-warnbg",
+      "--ns-warnborder",
+      "--ns-warntext",
+      "--page-side-padding",
+      "--panel-padding",
+      "--phone-breakpoint",
+      "--radius-badge",
+      "--radius-button",
+      "--radius-card",
+      "--radius-control",
+      "--radius-modal",
+      "--section-gap",
+      "--shadow-modal",
+      "--space-1",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-6",
+      "--status-success",
+      "--step-disc-size",
+      "--surface-card",
+      "--surface-locked",
+      "--surface-page",
+      "--surface-strip",
+      "--text-badge-size",
+      "--text-badge-weight",
+      "--text-body",
+      "--text-body-line",
+      "--text-body-size",
+      "--text-body-weight",
+      "--text-btn-add-size",
+      "--text-btn-sm-line",
+      "--text-btn-sm-size",
+      "--text-control-line",
+      "--text-control-size",
+      "--text-h2-size",
+      "--text-h2-weight",
+      "--text-help-line",
+      "--text-help-size",
+      "--text-label-weight",
+      "--text-link",
+      "--text-secondary",
+      "--text-step-number-size",
+      "--tile-gap",
+      "--tile-min-width",
+      "--touch-target"
+    ],
+    "tokenKinds": {
+      "--ns-bg": "color",
+      "--ns-text": "font",
+      "--ns-secondary": "color",
+      "--ns-tertiary": "color",
+      "--ns-border": "color",
+      "--ns-cardborder": "color",
+      "--ns-subtle": "color",
+      "--ns-locked": "color",
+      "--ns-link": "color",
+      "--ns-link-hover": "color",
+      "--ns-primary": "color",
+      "--ns-primary-hover": "color",
+      "--ns-danger": "color",
+      "--ns-success": "color",
+      "--ns-badge": "color",
+      "--ns-warnbg": "color",
+      "--ns-warnborder": "color",
+      "--ns-warntext": "color",
+      "--ns-successbg": "color",
+      "--ns-successborder": "color",
+      "--ns-successtext": "color",
+      "--ns-dangerbg": "color",
+      "--ns-dangerborder": "color",
+      "--ns-dangertext": "color",
+      "--ns-infobg": "color",
+      "--ns-infoborder": "color",
+      "--ns-infotext": "color",
+      "--ns-hover-wash": "color",
+      "--ns-press-wash": "color",
+      "--ns-focus-ring": "color",
+      "--ns-focus-ring-neutral": "color",
+      "--ns-backdrop": "color",
+      "--ns-button-fg": "color",
+      "--ns-qr-ground": "color",
+      "--ns-brand-field": "color",
+      "--ns-brand-mark": "color",
+      "--ns-brand-tagline": "color",
+      "--surface-page": "color",
+      "--surface-card": "color",
+      "--surface-strip": "color",
+      "--surface-locked": "color",
+      "--text-body": "font",
+      "--text-secondary": "font",
+      "--text-link": "font",
+      "--border-rule": "color",
+      "--border-card": "color",
+      "--action-primary": "color",
+      "--action-danger": "color",
+      "--status-success": "color",
+      "--bs-secondary-color": "color",
+      "--bs-secondary-color-rgb": "color",
+      "--bs-tertiary-color": "color",
+      "--bs-border-color": "color",
+      "--bs-border-color-translucent": "color",
+      "--bs-secondary-bg": "color",
+      "--bs-link-color": "color",
+      "--bs-link-color-rgb": "color",
+      "--bs-link-hover-color": "color",
+      "--bs-link-hover-color-rgb": "color",
+      "--bs-warning-bg-subtle": "color",
+      "--bs-warning-text-emphasis": "font",
+      "--bs-card-cap-bg": "color",
+      "--bs-body-bg": "color",
+      "--bs-body-color": "color",
+      "--bs-success-bg-subtle": "color",
+      "--bs-success-border-subtle": "color",
+      "--bs-success-text-emphasis": "font",
+      "--bs-danger-bg-subtle": "color",
+      "--bs-danger-border-subtle": "color",
+      "--bs-danger-text-emphasis": "font",
+      "--bs-info-bg-subtle": "color",
+      "--bs-info-border-subtle": "color",
+      "--bs-info-text-emphasis": "font",
+      "--bs-focus-ring-color": "color",
+      "--font-sans": "font",
+      "--font-mono": "font",
+      "--text-h2-size": "font",
+      "--text-h2-weight": "font",
+      "--text-body-size": "font",
+      "--text-body-weight": "font",
+      "--text-body-line": "font",
+      "--text-label-weight": "font",
+      "--text-help-size": "font",
+      "--text-help-line": "font",
+      "--text-control-size": "font",
+      "--text-control-line": "font",
+      "--text-badge-size": "font",
+      "--text-badge-weight": "font",
+      "--text-btn-sm-size": "font",
+      "--text-btn-sm-line": "font",
+      "--text-btn-add-size": "font",
+      "--text-step-number-size": "font",
+      "--space-1": "spacing",
+      "--space-2": "spacing",
+      "--space-3": "spacing",
+      "--space-4": "spacing",
+      "--space-6": "spacing",
+      "--page-side-padding": "spacing",
+      "--section-gap": "spacing",
+      "--card-padding": "spacing",
+      "--card-strip-padding": "spacing",
+      "--card-gap": "spacing",
+      "--field-gap": "spacing",
+      "--grid-gap": "spacing",
+      "--panel-padding": "spacing",
+      "--tile-gap": "spacing",
+      "--radius-control": "radius",
+      "--radius-card": "radius",
+      "--radius-button": "radius",
+      "--radius-badge": "radius",
+      "--radius-modal": "radius",
+      "--border-width": "color",
+      "--control-height": "spacing",
+      "--control-side-padding": "spacing",
+      "--button-sm-height": "spacing",
+      "--button-add-height": "spacing",
+      "--checkbox-size": "spacing",
+      "--step-disc-size": "spacing",
+      "--mark-size": "spacing",
+      "--touch-target": "spacing",
+      "--banner-ratio": "other",
+      "--tile-min-width": "spacing",
+      "--phone-breakpoint": "spacing",
+      "--modal-max-width": "spacing",
+      "--shadow-modal": "shadow"
+    },
+    "fontFamilies": []
+  }
+}
