@@ -3,6 +3,7 @@ import type { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformCon
 import { GeneratorAccessory } from './accessory.js';
 import { ApiError, backoffMs, InvalidGrantError, MobileLinkClient, readCredentials } from './api.js';
 import { ATTENTION_NAME, AttentionAccessory } from './attention.js';
+import { capturesDir, writeCapture } from './captures.js';
 import { ExerciseTracker, inWatchWindow, msUntilWatchWindow, parseHHMM } from './exercise.js';
 import { isActive, toGeneratorState, type GeneratorState } from './model.js';
 import {
@@ -26,7 +27,7 @@ import {
   type GeneratorSnapshot,
   type OtherDevice,
 } from './state.js';
-import { DEVICE_TYPE, DEVICE_TYPE_LABEL, type RawApparatus, type StoredCredentials } from './types.js';
+import { DEVICE_TYPE, DEVICE_TYPE_LABEL, type RawApparatus, type RawApparatusDetail, type StoredCredentials } from './types.js';
 
 /** How often the credentials file is re-read while there is no working client (SPEC section 4.4). */
 export const CREDENTIAL_CHECK_MS = 60 * 1000;
@@ -452,6 +453,7 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
     const displayName = displayNameFor(this.config, raw.apparatusId, state.name);
 
     let gen = this.generators.get(raw.apparatusId);
+    const previousStatus = gen?.current?.status;
     if (!gen) {
       let acc = this.cached.get(uuid);
       let restored = false;
@@ -479,8 +481,23 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       }
       gen.update(state);
     }
-    this.observeExercise(raw.apparatusId, gen, state);
+    const retroactive = this.observeExercise(raw.apparatusId, gen, state);
+    const statusChanged = previousStatus !== undefined && previousStatus !== state.status;
+    if (this.config.debug && (statusChanged || retroactive)) {
+      this.capture(gen, detail, state.status);
+    }
     return isActive(state);
+  }
+
+  /** A debug capture of the raw payload (SPEC section 12). Never blocks a poll: a write failure is warned about once. */
+  private capture(gen: GeneratorAccessory, detail: RawApparatusDetail, status: number): void {
+    const dir = capturesDir(this.storagePath);
+    try {
+      const file = writeCapture(dir, detail, status, new Date(this.now()));
+      this.debug(`${gen.accessory.displayName}: captured the details payload to ${file}`);
+    } catch (err) {
+      this.once(`capture-${(err as Error).message}`, 'warn', `Could not write a capture under ${dir}: ${(err as Error).message}`);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -496,7 +513,8 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
     }
   }
 
-  private observeExercise(id: number, gen: GeneratorAccessory, state: GeneratorState): void {
+  /** Feeds one poll into the generator's tracker and drives the sensor. Returns true on a retroactive detection. */
+  private observeExercise(id: number, gen: GeneratorAccessory, state: GeneratorState): boolean {
     let tracker = this.trackers.get(id);
     if (!tracker) {
       tracker = new ExerciseTracker(this.persistedExercise.get(id), this.config.exerciseHoldMinutes * 60 * 1000);
@@ -512,6 +530,7 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       this.scheduleHoldExpiry(id, gen, tracker);
     }
     gen.setExercising(result.open);
+    return result.retroactive;
   }
 
   /** Closes the sensor when the hold runs out between polls. */

@@ -607,6 +607,58 @@ describe('GeneracPlatform', () => {
     });
   });
 
+  describe('captures (SPEC section 12)', () => {
+    const capturesOf = (storage: string): string[] => {
+      const dir = path.join(storage, 'homebridge-generac', 'captures');
+      return fs.existsSync(dir) ? fs.readdirSync(dir).sort() : [];
+    };
+
+    it('writes the raw payload on a status change and on a new lastExerciseAt, only with debug on', async () => {
+      fetcher = new FakeFetch();
+      const details: Record<number, RawApparatusDetail> = { 2053735: ready };
+      scripted(fetcher, { details });
+      const h = harness();
+      const built = build(h, { debug: true });
+      platform = built.platform;
+      let clock = Date.parse('2026-09-19T14:00:00Z');
+      platform.now = () => clock;
+      await platform.start();
+      assert.deepEqual(capturesOf(h.storage), [], 'the first poll is not a change');
+
+      details[2053735] = { ...ready, apparatusStatus: STATUS.EXERCISING };
+      clock += 60_000;
+      await platform.poll();
+      assert.deepEqual(capturesOf(h.storage), ['2026-09-19T14-01-00.000Z-status3.json']);
+
+      clock += 60_000;
+      await platform.poll();
+      assert.equal(capturesOf(h.storage).length, 1, 'no change, no capture');
+
+      details[2053735] = { ...ready, alert: { eCode: 0, eventType: 42, timestamp: '2026-09-19T14:02:30.000Z', type: 5 } };
+      clock += 60_000;
+      await platform.poll();
+      const names = capturesOf(h.storage);
+      assert.deepEqual(names, ['2026-09-19T14-01-00.000Z-status3.json', '2026-09-19T14-03-00.000Z-status1.json']);
+      const text = fs.readFileSync(path.join(h.storage, 'homebridge-generac', 'captures', names[1]), 'utf8');
+      assert.equal(JSON.parse(text).alert.eventType, 42);
+      assert.equal(text.includes('access-'), false, 'no access token in a capture');
+      assert.equal(text.includes('refresh-token-value'), false, 'no refresh token in a capture');
+      assert.ok(built.lines('info').some((l) => l.includes('captured the details payload to ')));
+    });
+
+    it('writes nothing without debug', async () => {
+      fetcher = new FakeFetch();
+      const details: Record<number, RawApparatusDetail> = { 2053735: ready };
+      scripted(fetcher, { details });
+      const h = harness();
+      platform = build(h).platform;
+      await platform.start();
+      details[2053735] = { ...ready, apparatusStatus: STATUS.RUNNING };
+      await platform.poll();
+      assert.deepEqual(capturesOf(h.storage), []);
+    });
+  });
+
   it('debug setting raises the debug lines to info; otherwise they go to log.debug', async () => {
     fetcher = new FakeFetch();
     scripted(fetcher, {});
