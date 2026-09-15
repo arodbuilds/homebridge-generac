@@ -5,7 +5,9 @@
   "headerDisplay": "Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor and a starting battery reading. Propane models will also get a tank level later.",
   "schema": {
     "type": "object",
-    "required": ["name"],
+    "required": [
+      "name"
+    ],
     "properties": {
       "name": {
         "title": "Name",
@@ -50,6 +52,25 @@
         "default": false,
         "description": "Adds an occupancy sensor to HomeKit that turns on when the plugin needs you to reconnect."
       },
+      "exerciseSensor": {
+        "title": "Exercising sensor",
+        "type": "boolean",
+        "default": true,
+        "description": "Adds a sensor that opens while the weekly exercise runs, or when Mobile Link reports one finished. Use it to confirm the generator exercised this week."
+      },
+      "exerciseTime": {
+        "title": "Exercise time",
+        "type": "string",
+        "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+        "description": "When your generator's weekly exercise starts. Prefilled from Mobile Link; correct it if your unit starts at a different time. The plugin checks more often around this time every day."
+      },
+      "exerciseHoldMinutes": {
+        "title": "Exercise hold (minutes)",
+        "type": "integer",
+        "default": 5,
+        "minimum": 1,
+        "description": "How long the Exercising sensor stays open after an exercise is detected."
+      },
       "debug": {
         "title": "Debug logging",
         "type": "boolean",
@@ -64,8 +85,12 @@
         "items": {
           "type": "object",
           "properties": {
-            "apparatusId": { "type": "integer" },
-            "name": { "type": "string" }
+            "apparatusId": {
+              "type": "integer"
+            },
+            "name": {
+              "type": "string"
+            }
           }
         }
       }
@@ -73,12 +98,36 @@
   },
   "layout": [
     "name",
-    { "key": "pollIdleMinutes", "validationMessages": { "minimum": "Minimum is 2 minutes." } },
-    { "key": "pollActiveSeconds", "validationMessages": { "minimum": "Minimum is 60 seconds." } },
+    {
+      "key": "pollIdleMinutes",
+      "validationMessages": {
+        "minimum": "Minimum is 2 minutes."
+      }
+    },
+    {
+      "key": "pollActiveSeconds",
+      "validationMessages": {
+        "minimum": "Minimum is 60 seconds."
+      }
+    },
     "batteryLowVoltage",
     "faultOnStopped",
     "faultOnDisconnected",
     "attentionSensor",
+    "exerciseSensor",
+    {
+      "key": "exerciseTime",
+      "validationMessages": {
+        "pattern": "Enter a time as HH:MM, for example 10:00."
+      }
+    },
+    {
+      "key": "exerciseHoldMinutes",
+      "validationMessages": {
+        "minimum": "Minimum is 1 minute."
+      }
+    },
     "debug"
-  ]
+  ],
+  "customUi": true
 }

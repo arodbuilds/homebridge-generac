@@ -171,7 +171,7 @@ Not an Outlet, Switch or any other service. Rationale in README.
 
 No secrets in config.json. `generators[]` holds only display-name overrides and is written by the settings page's Rename. Unknown ids are ignored. `credentialsPath` is Advanced-only and absent from the settings page. `exerciseTime` is a 24-hour "HH:MM" string and optional; when absent the API's Exercise Minutes value is used as the default.
 
-`config.schema.json` mirrors these keys with the labels and help from 11.3 and sets `customUi: true` once build 2 lands.
+`config.schema.json` mirrors these keys with the labels and help from 11.3 and sets `customUi: true` (build 2).
 
 ## 10. UI server (build 2)
 
@@ -284,6 +284,15 @@ Generac additions:
 - `Exercise hold (minutes)` default 5, min 1, help `How long the Exercising sensor stays open after an exercise is detected.` Error `Minimum is 1 minute.`
 - `Debug logging` default off, help `Verbose logging. Your password is never logged, even with this on.`
 - Reset dialog lines: `Signs out of Mobile Link and removes the saved sign-in.`, `Removes every generator and its sensors from the Home app.`, `Clears all settings on this page.`
+
+**F. Shell strings** (the plugin shell's own copy, shared with the author's other plugins)
+- Disclosure summary: `Advanced`
+- Reset: button `Reset plugin to fresh install`, dialog title `Reset plugin to fresh install?`, prompt `Type RESET to confirm.`, button `Confirm`, done toast `Signed out and reset. Click Save, then restart Homebridge.`
+- Password field toggle: `Show`, `Hide`
+- Required field: `{Label} is required.`
+- Credit footer: `Made by Alex Rodriguez`, `alex-rodriguez.com`, `Report an issue`
+- Relative times: `just now`, `1 minute ago`, `{n} minutes ago`, `1 hour ago`, `{n} hours ago`, `1 day ago`, `{n} days ago`
+- Failures of the host itself: `Could not load the configuration.`, `Could not update the configuration.`
 
 ## 12. Logging
 
