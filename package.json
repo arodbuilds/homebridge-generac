@@ -1,40 +1,56 @@
 {
-  "name": "homebridge-plugin-name",
-  "displayName": "Plugin Name",
+  "name": "homebridge-generac",
+  "displayName": "Generac for Homebridge",
   "type": "module",
-  "version": "1.0.0",
-  "private": true,
-  "description": "A short description about what your plugin does.",
-  "author": "Your Name",
+  "version": "0.1.0-beta.1",
+  "description": "Generac Mobile Link standby generators in HomeKit: running, fault and maintenance sensors plus starting-battery health.",
+  "author": "Alex Rodriguez (https://alex-rodriguez.com)",
   "license": "Apache-2.0",
-  "homepage": "https://github.com/USERNAME/GITHUB_PROJECT_NAME#readme",
+  "homepage": "https://github.com/arodbuilds/homebridge-generac#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME.git"
+    "url": "https://github.com/arodbuilds/homebridge-generac.git"
   },
   "bugs": {
-    "url": "https://github.com/USERNAME/GITHUB_PROJECT_NAME/issues"
+    "url": "https://github.com/arodbuilds/homebridge-generac/issues"
   },
   "keywords": [
     "homebridge-plugin",
-    "supports-hap"
+    "supports-hap",
+    "generac",
+    "mobilelink",
+    "mobile link",
+    "generator",
+    "standby generator",
+    "homekit"
   ],
   "main": "dist/index.js",
+  "bin": {
+    "homebridge-generac": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "config.schema.json",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "engines": {
-    "node": "^22.10.0 || ^24.0.0",
-    "homebridge": "^1.8.0 || ^2.0.0"
+    "node": "^20.18.0 || ^22.10.0",
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
   },
   "scripts": {
     "build": "rimraf ./dist && tsc",
     "lint": "eslint . --max-warnings=0",
     "prepublishOnly": "npm run lint && npm run build",
+    "test": "npm run lint && npm run build && npm run test:unit",
+    "test:unit": "rimraf ./build-test && tsc -p tsconfig.test.json && node --test build-test/test/*.test.js",
     "watch": "npm run build && npm link && nodemon"
-  },
-  "dependencies": {
-    "homebridge-lib": "^8.1.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@homebridge/hap-nodejs": "^2.2.3",
     "@types/node": "^26.2.0",
     "eslint": "^10.9.0",
     "homebridge": "^2.4.0",

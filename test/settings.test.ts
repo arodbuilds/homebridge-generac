@@ -1,0 +1,87 @@
+import assert from 'node:assert/strict';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, it } from 'node:test';
+import {
+  credentialCandidates,
+  displayNameFor,
+  pluginVersion,
+  primaryCredentialsPath,
+  resolveConfig,
+  statePath,
+} from '../src/settings.js';
+
+describe('resolveConfig', () => {
+  it('applies SPEC section 9 defaults', () => {
+    assert.deepEqual(resolveConfig({}), {
+      pollIdleMinutes: 10,
+      pollActiveSeconds: 90,
+      batteryLowVoltage: 12.0,
+      faultOnStopped: true,
+      faultOnDisconnected: false,
+      attentionSensor: false,
+      debug: false,
+      generators: [],
+    });
+  });
+
+  it('enforces the minimums and ignores junk', () => {
+    const c = resolveConfig({ pollIdleMinutes: 1, pollActiveSeconds: 10, batteryLowVoltage: 'x' as unknown as number });
+    assert.equal(c.pollIdleMinutes, 2);
+    assert.equal(c.pollActiveSeconds, 60);
+    assert.equal(c.batteryLowVoltage, 12.0);
+    assert.equal(resolveConfig({ pollIdleMinutes: 30, pollActiveSeconds: 120 }).pollIdleMinutes, 30);
+    assert.equal(resolveConfig({ pollIdleMinutes: 30, pollActiveSeconds: 120 }).pollActiveSeconds, 120);
+  });
+
+  it('keeps only well-formed generator overrides', () => {
+    const c = resolveConfig({
+      generators: [
+        { apparatusId: 1, name: ' Basement ' },
+        { apparatusId: 'nope' as unknown as number, name: 'x' },
+        { apparatusId: 2, name: '' },
+        null as unknown as { apparatusId: number; name: string },
+      ],
+      attentionSensor: true,
+      debug: true,
+    });
+    assert.deepEqual(c.generators, [{ apparatusId: 1, name: 'Basement' }]);
+    assert.equal(c.attentionSensor, true);
+    assert.equal(c.debug, true);
+  });
+});
+
+describe('displayNameFor', () => {
+  const c = resolveConfig({ generators: [{ apparatusId: 2053735, name: 'Basement' }] });
+  it('prefers the override, else the Mobile Link name', () => {
+    assert.equal(displayNameFor(c, 2053735, 'Blue Door'), 'Basement');
+    assert.equal(displayNameFor(c, 1, 'Blue Door'), 'Blue Door');
+  });
+});
+
+describe('paths', () => {
+  it('credential candidates follow SPEC section 4.4 order and dedupe', () => {
+    const home = path.join(os.homedir(), '.homebridge', 'homebridge-generac', 'credentials.json');
+    assert.deepEqual(credentialCandidates('/var/lib/homebridge'), [
+      '/var/lib/homebridge/homebridge-generac/credentials.json',
+      home,
+    ]);
+    assert.deepEqual(credentialCandidates('/var/lib/homebridge', '/etc/generac/creds.json'), [
+      '/var/lib/homebridge/homebridge-generac/credentials.json',
+      '/etc/generac/creds.json',
+      home,
+    ]);
+    assert.deepEqual(credentialCandidates(path.join(os.homedir(), '.homebridge'), ''), [home]);
+    assert.deepEqual(credentialCandidates(undefined), [home]);
+    assert.ok(credentialCandidates('/x').every((p) => !p.includes('.homebridge-generac')), 'phase 0 probe location dropped');
+  });
+
+  it('primary credentials and state paths live under the storage path', () => {
+    assert.equal(primaryCredentialsPath('/s'), '/s/homebridge-generac/credentials.json');
+    assert.equal(statePath('/s'), '/s/homebridge-generac/state.json');
+  });
+
+  it('pluginVersion reads package.json', () => {
+    assert.equal(pluginVersion(), '0.1.0-beta.1');
+  });
+});

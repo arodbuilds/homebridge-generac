@@ -1,18 +1,84 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "Generac",
   "pluginType": "platform",
   "singular": true,
-  "strictValidation": false,
+  "headerDisplay": "Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor and a starting battery reading. Propane models will also get a tank level later.",
   "schema": {
     "type": "object",
     "required": ["name"],
-    "additionalProperties": false,
     "properties": {
       "name": {
         "title": "Name",
         "type": "string",
-        "default": "Example Dynamic Platform"
+        "default": "Generac"
+      },
+      "pollIdleMinutes": {
+        "title": "Poll interval while idle (minutes)",
+        "type": "integer",
+        "default": 10,
+        "minimum": 2,
+        "description": "Mobile Link updates every few minutes and limits how often you can check. Faster than this rarely helps."
+      },
+      "pollActiveSeconds": {
+        "title": "Poll interval while running or in fault (seconds)",
+        "type": "integer",
+        "default": 90,
+        "minimum": 60,
+        "description": "Used while a generator is running, exercising, or reporting a problem."
+      },
+      "batteryLowVoltage": {
+        "title": "Low battery threshold (volts)",
+        "type": "number",
+        "default": 12.0,
+        "description": "A healthy starting battery on charge reads 13.4 to 13.8 V."
+      },
+      "faultOnStopped": {
+        "title": "Treat Stopped as a fault",
+        "type": "boolean",
+        "default": true,
+        "description": "Stopped means the control switch is in OFF and the generator won't start during an outage."
+      },
+      "faultOnDisconnected": {
+        "title": "Treat a lost connection as a fault",
+        "type": "boolean",
+        "default": false,
+        "description": "Off by default. Wi-Fi drops are common and the sensors already show Not responding."
+      },
+      "attentionSensor": {
+        "title": "Attention needed sensor",
+        "type": "boolean",
+        "default": false,
+        "description": "Adds an occupancy sensor to HomeKit that turns on when the plugin needs you to reconnect."
+      },
+      "debug": {
+        "title": "Debug logging",
+        "type": "boolean",
+        "default": false,
+        "description": "Verbose logging. Your password is never logged, even with this on."
+      },
+      "credentialsPath": {
+        "type": "string"
+      },
+      "generators": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "apparatusId": { "type": "integer" },
+            "name": { "type": "string" }
+          }
+        }
       }
     }
-  }
+  },
+  "layout": [
+    "name",
+    { "key": "pollIdleMinutes", "validationMessages": { "minimum": "Minimum is 2 minutes." } },
+    { "key": "pollActiveSeconds", "validationMessages": { "minimum": "Minimum is 60 seconds." } },
+    "batteryLowVoltage",
+    "faultOnStopped",
+    "faultOnDisconnected",
+    "attentionSensor",
+    "debug"
+  ]
 }

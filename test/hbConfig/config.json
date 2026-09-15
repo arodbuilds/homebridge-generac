@@ -1,13 +1,13 @@
 {
   "bridge": {
-    "name": "PluginTemplate",
+    "name": "GeneracDev",
     "username": "AA:BB:CC:DD:EE:FF",
     "port": 51826,
     "pin": "031-45-154"
   },
-  "description": "HomeBridge HTTP Status Control",
+  "description": "Local development bridge for homebridge-generac (npm run watch)",
   "plugins": [
-    "homebridge-plugin-name",
+    "homebridge-generac",
     "homebridge-config-ui-x"
   ],
   "platforms": [
@@ -23,8 +23,9 @@
       "debug": false
     },
     {
-      "name": "homebridge-plugin-name",
-      "platform": "ExampleHomebridgePlugin"
+      "name": "Generac",
+      "platform": "Generac",
+      "debug": true
     }
   ],
   "accessories": []
