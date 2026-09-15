@@ -458,6 +458,23 @@ describe('GeneracPlatform', () => {
     assert.equal(fetcher.calls.length, calls);
   });
 
+  it('removes every cached accessory once when the Reset marker is present', async () => {
+    fetcher = new FakeFetch();
+    scripted(fetcher, {});
+    const h = harness();
+    const gen = new FakeAccessory('Blue Door', generatorUuid(2053735));
+    const attention = new FakeAccessory(ATTENTION_NAME, attentionUuid);
+    fs.mkdirSync(path.join(h.storage, 'homebridge-generac'), { recursive: true });
+    fs.writeFileSync(path.join(h.storage, 'homebridge-generac', 'reset-pending'), 'now');
+    const built = build(h, { attentionSensor: true }, [gen, attention], false);
+    platform = built.platform;
+    await platform.start();
+    assert.deepEqual(h.unregistered, [gen, attention]);
+    assert.equal(fs.existsSync(path.join(h.storage, 'homebridge-generac', 'reset-pending')), false);
+    assert.equal(h.registered.length, 1, 'the attention sensor is registered fresh, as configured');
+    assert.ok(built.lines('info').some((l) => l === 'Reset from the settings page: removed 2 cached accessories.'));
+  });
+
   it('honours credentialsPath as the second lookup location', async () => {
     fetcher = new FakeFetch();
     scripted(fetcher, {});

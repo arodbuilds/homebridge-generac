@@ -175,15 +175,16 @@ No secrets in config.json. `generators[]` holds only display-name overrides and 
 
 ## 10. UI server (build 2)
 
-`homebridge-ui/server.ts` on `@homebridge/plugin-ui-utils`. Endpoints:
+`src/ui/server.ts` on `@homebridge/plugin-ui-utils`, compiled with the platform and started through `homebridge-ui/server.js` (the file the Homebridge UI looks for), so it shares the auth, credentials and state modules. Endpoints:
 
 | endpoint | request | response |
 |---|---|---|
-| `/status` | none | `{ account: { state: "not_connected" \| "checking" \| "connected" \| "reconnect_needed", email?, lastChecked? }, generators: [GeneratorState], others: [{ type, name }] }`. `checking` when credentials exist but state.json has no account entry newer than the credentials' `created_at`. |
+| `/status` | none | `{ account: { state: "not_connected" \| "checking" \| "connected" \| "reconnect_needed", email?, lastChecked? }, generators: [GeneratorState], others: [{ type, name }], version }`. `checking` when credentials exist but state.json has no account entry newer than the credentials' `created_at`. |
 | `/connect/start` | `{ email, password }` | `{ step: "code", method: "sms" \| "otp" \| "email" }` or `{ step: "done" }` or `{ error: "wrong_password" \| "unknown_email" \| "unsupported_factor" \| "network" }` |
 | `/connect/code` | `{ code }` | `{ step: "done" }` or `{ error: "wrong_code" \| "too_many" \| "expired" }` |
 | `/connect/cancel` | none | `{ ok: true }` |
 | `/disconnect` | none | `{ ok: true }` (deletes credentials.json and clears the account section of state.json) |
+| `/reset` | none | `{ ok: true }` (the Reset dialog: deletes credentials.json and state.json and leaves a `reset-pending` marker under the data directory; the platform removes every cached accessory on its next start and deletes the marker) |
 
 Rename does not go through the server: it edits `generators[]` in the page through `homebridge.getPluginConfig()` and `updatePluginConfig()`; the host's SAVE persists it.
 
@@ -210,6 +211,7 @@ Generac additions:
 - Status badges on the generator card use the host's success (Ready), info (Running, Exercising), danger (Fault) and secondary (Not responding) subtle variables.
 - `crypto.randomUUID` is unavailable over plain http in the host; do not use it in the UI (Peloton build 3 finding).
 - The Rename control is the card's footer button and edits in place; Save persists.
+- Reset (Settings disclosure) calls `/reset`, then replaces the platform block with the defaults through `updatePluginConfig()`; the host's SAVE persists it and the restart that follows removes the accessories.
 
 ### 11.3 Copy (verbatim)
 

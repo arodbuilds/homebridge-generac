@@ -103,6 +103,9 @@ export function primaryCredentialsPath(storagePath: string): string {
   return path.join(dataDir(storagePath), 'credentials.json');
 }
 
+/** The marker the settings page's Reset leaves under the data directory: the platform removes every cached accessory on its next start. */
+export const RESET_MARKER = 'reset-pending';
+
 /** Where the platform writes its state after every poll (SPEC section 10). */
 export function statePath(storagePath: string): string {
   return path.join(dataDir(storagePath), 'state.json');

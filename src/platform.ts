@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import type { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
 import { GeneratorAccessory } from './accessory.js';
 import { ApiError, backoffMs, InvalidGrantError, MobileLinkClient, readCredentials } from './api.js';
@@ -8,11 +9,13 @@ import { ExerciseTracker, inWatchWindow, msUntilWatchWindow, parseHHMM } from '.
 import { isActive, toGeneratorState, type GeneratorState } from './model.js';
 import {
   credentialCandidates,
+  dataDir,
   displayNameFor,
   firmwareVersion,
   PLATFORM_NAME,
   PLUGIN_NAME,
   pluginVersion,
+  RESET_MARKER,
   resolveConfig,
   statePath,
   type GeneracConfig,
@@ -113,6 +116,7 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
    * await the first poll.
    */
   async start(): Promise<void> {
+    this.applyResetMarker();
     this.setupAttention();
     this.loadPersistedExercise();
     if (this.loadCredentials()) {
@@ -137,6 +141,24 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       clearTimeout(timer);
     }
     this.holdTimers.clear();
+  }
+
+  /**
+   * The settings page's Reset dialog leaves a marker (SPEC section 11.3 E, "Removes every generator and its sensors
+   * from the Home app"): every cached accessory goes on this start, once, and the marker with it.
+   */
+  private applyResetMarker(): void {
+    const marker = path.join(dataDir(this.storagePath), RESET_MARKER);
+    if (!fs.existsSync(marker)) {
+      return;
+    }
+    const accessories = [...this.cached.values()];
+    if (accessories.length > 0) {
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessories);
+      this.cached.clear();
+    }
+    fs.rmSync(marker, { force: true });
+    this.log.info(`Reset from the settings page: removed ${accessories.length} cached accessor${accessories.length === 1 ? 'y' : 'ies'}.`);
   }
 
   // ---------------------------------------------------------------------------
