@@ -20,6 +20,9 @@ describe('resolveConfig', () => {
       faultOnStopped: true,
       faultOnDisconnected: false,
       attentionSensor: false,
+      exerciseSensor: true,
+      exerciseTime: undefined,
+      exerciseHoldMinutes: 5,
       debug: false,
       generators: [],
     });

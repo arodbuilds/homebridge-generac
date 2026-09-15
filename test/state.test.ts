@@ -4,7 +4,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import { writeFileAtomic } from '../src/files.js';
 import { toGeneratorState } from '../src/model.js';
-import { buildStateFile, writeStateFile } from '../src/state.js';
+import { buildStateFile, readStateFile, toGeneratorSnapshot, writeStateFile } from '../src/state.js';
 import { loadFixture, tmpDir } from './helpers.js';
 
 describe('state file', () => {
@@ -13,7 +13,7 @@ describe('state file', () => {
     const now = new Date('2026-09-15T16:00:00Z');
     const state = buildStateFile(
       { state: 'connected', email: 'you@example.com', lastChecked: now.toISOString() },
-      [gen],
+      [toGeneratorSnapshot(gen)],
       [{ type: 2, name: 'Tank', apparatusId: 9 }],
       now,
     );
@@ -21,6 +21,8 @@ describe('state file', () => {
     assert.equal(state.account.state, 'connected');
     assert.equal(state.generators[0].lastSeen, '2026-09-15T15:15:10.473Z');
     assert.equal(state.generators[0].name, 'Blue Door');
+    assert.equal(state.generators[0].lastExerciseAt, '2026-09-12T14:06:18.431Z');
+    assert.equal(toGeneratorSnapshot(gen, null).lastExerciseAt, null, 'the platform may override with its persisted value');
     assert.deepEqual(state.others, [{ type: 2, name: 'Tank', apparatusId: 9 }]);
     // Survives JSON without losing anything.
     assert.deepEqual(JSON.parse(JSON.stringify(state)), state);
@@ -33,6 +35,18 @@ describe('state file', () => {
     const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
     assert.equal(parsed.account.state, 'not_connected');
     assert.deepEqual(fs.readdirSync(dir), ['state.json']);
+  });
+
+  it('reads back what it wrote and tolerates a missing or broken file', () => {
+    const dir = path.join(tmpDir('state'), 'homebridge-generac');
+    const file = path.join(dir, 'state.json');
+    assert.equal(readStateFile(file), null);
+    writeStateFile(file, buildStateFile({ state: 'connected', email: 'you@example.com' }, [], []));
+    assert.equal(readStateFile(file)?.account.email, 'you@example.com');
+    fs.writeFileSync(file, '{not json');
+    assert.equal(readStateFile(file), null);
+    fs.writeFileSync(file, '[]');
+    assert.equal(readStateFile(file), null);
   });
 });
 

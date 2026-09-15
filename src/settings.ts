@@ -22,6 +22,9 @@ export interface GeneracConfig {
   faultOnStopped?: boolean;
   faultOnDisconnected?: boolean;
   attentionSensor?: boolean;
+  exerciseSensor?: boolean;
+  exerciseTime?: string;
+  exerciseHoldMinutes?: number;
   debug?: boolean;
   generators?: GeneratorOverride[];
 }
@@ -33,6 +36,10 @@ export interface ResolvedConfig {
   faultOnStopped: boolean;
   faultOnDisconnected: boolean;
   attentionSensor: boolean;
+  exerciseSensor: boolean;
+  /** 24-hour "HH:MM", or undefined to use the API's Exercise Minutes (SPEC section 9). Malformed values read as undefined. */
+  exerciseTime: string | undefined;
+  exerciseHoldMinutes: number;
   debug: boolean;
   generators: GeneratorOverride[];
 }
@@ -41,6 +48,20 @@ export const POLL_IDLE_MINUTES_DEFAULT = 10;
 export const POLL_IDLE_MINUTES_MIN = 2;
 export const POLL_ACTIVE_SECONDS_DEFAULT = 90;
 export const POLL_ACTIVE_SECONDS_MIN = 60;
+export const EXERCISE_HOLD_MINUTES_DEFAULT = 5;
+export const EXERCISE_HOLD_MINUTES_MIN = 1;
+
+/** A 24-hour "HH:MM" time as the settings page and config.json carry it. */
+export const HHMM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** The `exerciseTime` setting: "HH:MM" trimmed, or undefined when absent, blank or malformed. */
+export function exerciseTimeSetting(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const v = value.trim();
+  return HHMM_PATTERN.test(v) ? v : undefined;
+}
 
 function finiteOr(value: unknown, fallback: number): number {
   const n = typeof value === 'number' ? value : Number(value);
@@ -56,6 +77,9 @@ export function resolveConfig(c: GeneracConfig): ResolvedConfig {
     faultOnStopped: c.faultOnStopped ?? true,
     faultOnDisconnected: c.faultOnDisconnected ?? false,
     attentionSensor: c.attentionSensor ?? false,
+    exerciseSensor: c.exerciseSensor ?? true,
+    exerciseTime: exerciseTimeSetting(c.exerciseTime),
+    exerciseHoldMinutes: Math.max(EXERCISE_HOLD_MINUTES_MIN, finiteOr(c.exerciseHoldMinutes, EXERCISE_HOLD_MINUTES_DEFAULT)),
     debug: c.debug ?? false,
     generators: overrides
       .filter((g) => g && Number.isFinite(Number(g.apparatusId)) && typeof g.name === 'string' && g.name.trim() !== '')

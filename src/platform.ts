@@ -3,6 +3,7 @@ import type { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformCon
 import { GeneratorAccessory } from './accessory.js';
 import { ApiError, backoffMs, InvalidGrantError, MobileLinkClient, readCredentials } from './api.js';
 import { ATTENTION_NAME, AttentionAccessory } from './attention.js';
+import { ExerciseTracker, inWatchWindow, msUntilWatchWindow, parseHHMM } from './exercise.js';
 import { isActive, toGeneratorState, type GeneratorState } from './model.js';
 import {
   credentialCandidates,
@@ -15,7 +16,16 @@ import {
   type GeneracConfig,
   type ResolvedConfig,
 } from './settings.js';
-import { buildStateFile, writeStateFile, type AccountSnapshot, type AccountState, type OtherDevice } from './state.js';
+import {
+  buildStateFile,
+  readStateFile,
+  toGeneratorSnapshot,
+  writeStateFile,
+  type AccountSnapshot,
+  type AccountState,
+  type GeneratorSnapshot,
+  type OtherDevice,
+} from './state.js';
 import { DEVICE_TYPE, DEVICE_TYPE_LABEL, type RawApparatus, type StoredCredentials } from './types.js';
 
 /** How often the credentials file is re-read while there is no working client (SPEC section 4.4). */
@@ -41,6 +51,11 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
 
   private readonly cached = new Map<string, PlatformAccessory>();
   private readonly generators = new Map<number, GeneratorAccessory>();
+  /** Exercise detection per generator (SPEC section 7), seeded from state.json on start. */
+  private readonly trackers = new Map<number, ExerciseTracker>();
+  private readonly holdTimers = new Map<number, NodeJS.Timeout>();
+  /** `lastExerciseAt` per generator as state.json held it on start; a missing entry means first run for that unit. */
+  private readonly persistedExercise = new Map<number, string | null>();
   private others = new Map<number, OtherDevice>();
   private attention: AttentionAccessory | null = null;
 
@@ -58,6 +73,9 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
 
   /** Delay of the most recently scheduled poll in milliseconds, for the debug log and tests. */
   nextPollMs: number | null = null;
+
+  /** The clock, replaceable by tests (the hold timer and the watch window read it). */
+  now: () => number = Date.now;
 
   constructor(
     readonly log: Logger,
@@ -92,6 +110,7 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
    */
   async start(): Promise<void> {
     this.setupAttention();
+    this.loadPersistedExercise();
     if (this.loadCredentials()) {
       await this.poll();
       return;
@@ -110,6 +129,10 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       clearTimeout(this.credentialTimer);
       this.credentialTimer = null;
     }
+    for (const timer of this.holdTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.holdTimers.clear();
   }
 
   // ---------------------------------------------------------------------------
@@ -318,6 +341,12 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       for (const id of this.generators.keys()) {
         if (!seenIds.has(id)) {
           this.generators.delete(id);
+          this.trackers.delete(id);
+          const timer = this.holdTimers.get(id);
+          if (timer) {
+            clearTimeout(timer);
+            this.holdTimers.delete(id);
+          }
         }
       }
 
@@ -361,13 +390,49 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       return;
     }
 
-    const intervalMs = anyActive ? this.config.pollActiveSeconds * 1000 : this.config.pollIdleMinutes * 60 * 1000;
+    const intervalMs = this.nextInterval(anyActive);
     this.debug(
       `Poll finished in ${Date.now() - started} ms: ${count} generator(s), ${anyActive ? 'active' : 'idle'}, ` +
         `next poll in ${Math.round(intervalMs / 1000)}s`,
     );
     this.writeState();
     this.schedule(intervalMs);
+  }
+
+  /**
+   * The delay until the next poll (SPEC section 8): the active interval while any generator is active or the
+   * exercise watch window is open, else the idle interval, cut short so the next poll lands when the window opens.
+   */
+  private nextInterval(anyActive: boolean): number {
+    const active = this.config.pollActiveSeconds * 1000;
+    const idle = this.config.pollIdleMinutes * 60 * 1000;
+    const minutes = this.exerciseMinutes();
+    if (minutes === null) {
+      return anyActive ? active : idle;
+    }
+    const now = new Date(this.now());
+    if (inWatchWindow(minutes, now)) {
+      return active;
+    }
+    return Math.min(anyActive ? active : idle, msUntilWatchWindow(minutes, now));
+  }
+
+  /**
+   * The exercise time the watch window follows, as minutes past local midnight: the `exerciseTime` setting,
+   * else the first generator's Exercise Minutes from the API, else null (no window).
+   */
+  exerciseMinutes(): number | null {
+    const configured = parseHHMM(this.config.exerciseTime);
+    if (configured !== null) {
+      return configured;
+    }
+    for (const gen of this.generators.values()) {
+      const fromApi = parseHHMM(gen.current?.exerciseTimeFromApi);
+      if (fromApi !== null) {
+        return fromApi;
+      }
+    }
+    return null;
   }
 
   /** Returns true when the generator is in an "active" state that warrants faster polling. */
@@ -414,7 +479,68 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       }
       gen.update(state);
     }
+    this.observeExercise(raw.apparatusId, gen, state);
     return isActive(state);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Exercising sensor (SPEC section 7, service 6)
+  // ---------------------------------------------------------------------------
+
+  private loadPersistedExercise(): void {
+    const state = readStateFile(statePath(this.storagePath));
+    for (const g of state?.generators ?? []) {
+      if (typeof g.id === 'number') {
+        this.persistedExercise.set(g.id, typeof g.lastExerciseAt === 'string' ? g.lastExerciseAt : null);
+      }
+    }
+  }
+
+  private observeExercise(id: number, gen: GeneratorAccessory, state: GeneratorState): void {
+    let tracker = this.trackers.get(id);
+    if (!tracker) {
+      tracker = new ExerciseTracker(this.persistedExercise.get(id), this.config.exerciseHoldMinutes * 60 * 1000);
+      this.trackers.set(id, tracker);
+    }
+    const now = this.now();
+    const result = tracker.observe(state.status, state.lastExerciseAt, now);
+    if (result.triggered) {
+      const how = result.retroactive
+        ? `Mobile Link reports an exercise finished at ${state.lastExerciseAt?.toISOString() ?? 'unknown'}`
+        : 'status is Exercising';
+      this.log.info(`${gen.accessory.displayName}: exercise detected (${how})`);
+      this.scheduleHoldExpiry(id, gen, tracker);
+    }
+    gen.setExercising(result.open);
+  }
+
+  /** Closes the sensor when the hold runs out between polls. */
+  private scheduleHoldExpiry(id: number, gen: GeneratorAccessory, tracker: ExerciseTracker): void {
+    const existing = this.holdTimers.get(id);
+    if (existing) {
+      clearTimeout(existing);
+      this.holdTimers.delete(id);
+    }
+    const remaining = tracker.holdRemaining(this.now());
+    if (remaining === null || this.stopped) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      this.holdTimers.delete(id);
+      gen.setExercising(tracker.isOpen(this.now()));
+    }, remaining);
+    timer.unref();
+    this.holdTimers.set(id, timer);
+  }
+
+  /** Re-evaluates every Exercising sensor against the clock. Public for tests, which drive the clock by hand. */
+  refreshExerciseSensors(): void {
+    for (const [id, gen] of this.generators) {
+      const tracker = this.trackers.get(id);
+      if (tracker) {
+        gen.setExercising(tracker.isOpen(this.now()));
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -426,11 +552,24 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
     return [...this.generators.values()].map((g) => g.current).filter((s): s is GeneratorState => s !== null);
   }
 
+  /** The generator states as the state file carries them, with the persisted `lastExerciseAt` per unit. */
+  private snapshots(): GeneratorSnapshot[] {
+    const out: GeneratorSnapshot[] = [];
+    for (const [id, gen] of this.generators) {
+      const state = gen.current;
+      if (state) {
+        const tracker = this.trackers.get(id);
+        out.push(toGeneratorSnapshot(state, tracker ? tracker.lastExerciseAt : (this.persistedExercise.get(id) ?? null)));
+      }
+    }
+    return out;
+  }
+
   private writeState(): void {
     const file = statePath(this.storagePath);
     const account: AccountSnapshot = { state: this.accountState, email: this.credentials?.email, lastChecked: this.lastChecked };
     try {
-      writeStateFile(file, buildStateFile(account, this.generatorStates, this.others.values()));
+      writeStateFile(file, buildStateFile(account, this.snapshots(), this.others.values()));
     } catch (err) {
       this.once(`state-${(err as Error).message}`, 'warn', `Could not write ${file}: ${(err as Error).message}`);
     }
