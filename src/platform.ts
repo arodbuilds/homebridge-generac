@@ -9,6 +9,7 @@ import { isActive, toGeneratorState, type GeneratorState } from './model.js';
 import {
   credentialCandidates,
   displayNameFor,
+  firmwareVersion,
   PLATFORM_NAME,
   PLUGIN_NAME,
   pluginVersion,
@@ -45,6 +46,8 @@ interface LoadedCredentials {
 export class GeneracPlatform implements DynamicPlatformPlugin {
   readonly config: ResolvedConfig;
   readonly version = pluginVersion();
+  /** What the accessories report as FirmwareRevision (SPEC section 7). */
+  readonly firmware = firmwareVersion(this.version);
 
   private readonly storagePath: string;
   private readonly credentialsPath: string | undefined;

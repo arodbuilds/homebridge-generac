@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import {
   credentialCandidates,
   displayNameFor,
+  firmwareVersion,
   pluginVersion,
   primaryCredentialsPath,
   resolveConfig,
@@ -86,5 +87,12 @@ describe('paths', () => {
 
   it('pluginVersion reads package.json', () => {
     assert.equal(pluginVersion(), '0.1.0-beta.1');
+  });
+
+  it('firmwareVersion keeps the numeric part only (SPEC section 7)', () => {
+    assert.equal(firmwareVersion('0.1.0-beta.1'), '0.1.0');
+    assert.equal(firmwareVersion('1.0.0'), '1.0.0');
+    assert.equal(firmwareVersion('1.2.3+build.4'), '1.2.3');
+    assert.equal(firmwareVersion('0.0.0'), '0.0.0');
   });
 });

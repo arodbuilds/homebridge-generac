@@ -130,6 +130,15 @@ export function defaultStoragePath(): string {
 }
 
 /**
+ * The numeric part of a version for HAP's FirmwareRevision (SPEC section 7): "0.1.0" for "0.1.0-beta.1".
+ * HAP truncates a pre-release suffix to "0.1", which is a different version.
+ */
+export function firmwareVersion(version: string): string {
+  const m = /^\d+\.\d+\.\d+/.exec(version.trim());
+  return m ? m[0] : version;
+}
+
+/**
  * The plugin's own version from package.json, found by walking up from this
  * file. Works from dist/ (published layout) and from the test build.
  */

@@ -206,7 +206,7 @@ describe('GeneracPlatform', () => {
     const info = acc.getService(Service.AccessoryInformation)!;
     assert.equal(info.getCharacteristic(Characteristic.Manufacturer).value, 'Generac');
     assert.equal(info.getCharacteristic(Characteristic.SerialNumber).value, '3000000001');
-    assert.equal(info.getCharacteristic(Characteristic.FirmwareRevision).value, '0.1.0-beta.1');
+    assert.equal(info.getCharacteristic(Characteristic.FirmwareRevision).value, '0.1.0', 'the numeric part: HAP truncates pre-release suffixes');
   });
 
   it('polls at the idle interval when Ready and the active interval when Running or in fault', async () => {

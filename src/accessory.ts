@@ -42,7 +42,7 @@ export class GeneratorAccessory {
       .setCharacteristic(Characteristic.Manufacturer, 'Generac')
       .setCharacteristic(Characteristic.Model, initial.model)
       .setCharacteristic(Characteristic.SerialNumber, initial.serial)
-      .setCharacteristic(Characteristic.FirmwareRevision, platform.version);
+      .setCharacteristic(Characteristic.FirmwareRevision, platform.firmware);
 
     this.running = this.contact('Running', 'running');
     this.fault = this.contact('Fault', 'fault');
