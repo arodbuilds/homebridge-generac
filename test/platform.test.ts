@@ -412,6 +412,52 @@ describe('GeneracPlatform', () => {
     assert.ok(built.lines('info').some((l) => l.startsWith('Using Mobile Link credentials for you@example.com from ')));
   });
 
+  it('stops when the credentials file disappears (Disconnect) and resumes when one appears again', async () => {
+    fetcher = new FakeFetch();
+    scripted(fetcher, {});
+    const h = harness();
+    const built = build(h);
+    platform = built.platform;
+    await platform.start();
+    assert.equal(platform.account, 'connected');
+    const running = contact(h.registered[0], 'running');
+    const calls = fetcher.calls.length;
+
+    fs.rmSync(primaryCredentialsPath(h.storage));
+    await platform.checkCredentials();
+    assert.equal(platform.account, 'not_connected');
+    assert.equal(readState(h.storage).account.state, 'not_connected');
+    assert.equal(readState(h.storage).account.email, undefined);
+    assert.equal(readState(h.storage).generators.length, 1, 'the last generator state is kept for the page');
+    assert.equal(running.getCharacteristic(Characteristic.StatusActive).value, false);
+    assert.ok(built.lines('warn').some((l) => l.startsWith('Mobile Link credentials were removed.')));
+    assert.equal(built.lines('error').length, 0, 'no "no credentials found" error after a deliberate Disconnect');
+
+    await platform.poll();
+    await platform.checkCredentials();
+    assert.equal(fetcher.calls.length, calls, 'no network while disconnected');
+    assert.equal(built.lines('warn').length, 1, 'the removal is logged once');
+
+    writeCredentials(primaryCredentialsPath(h.storage), makeCredentials({ created_at: '2026-09-16T10:00:00Z' }));
+    await platform.checkCredentials();
+    assert.equal(platform.account, 'connected');
+    assert.equal(running.getCharacteristic(Characteristic.StatusActive).value, true);
+    assert.equal(readState(h.storage).account.email, 'you@example.com');
+  });
+
+  it('a poll that finds the credentials gone stops without touching the network', async () => {
+    fetcher = new FakeFetch();
+    scripted(fetcher, {});
+    const h = harness();
+    platform = build(h).platform;
+    await platform.start();
+    const calls = fetcher.calls.length;
+    fs.rmSync(primaryCredentialsPath(h.storage));
+    await platform.poll();
+    assert.equal(platform.account, 'not_connected');
+    assert.equal(fetcher.calls.length, calls);
+  });
+
   it('honours credentialsPath as the second lookup location', async () => {
     fetcher = new FakeFetch();
     scripted(fetcher, {});

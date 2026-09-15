@@ -30,7 +30,7 @@ import {
 } from './state.js';
 import { DEVICE_TYPE, DEVICE_TYPE_LABEL, type RawApparatus, type RawApparatusDetail, type StoredCredentials } from './types.js';
 
-/** How often the credentials file is re-read while there is no working client (SPEC section 4.4). */
+/** How often the credentials file is re-read (SPEC section 4.4): for a sign-in while there is no working client, and for a Disconnect while there is one. */
 export const CREDENTIAL_CHECK_MS = 60 * 1000;
 /** Retry interval after `invalid_grant` (SPEC section 4.3). */
 export const RECONNECT_RETRY_MS = 60 * 60 * 1000;
@@ -117,9 +117,9 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
     this.loadPersistedExercise();
     if (this.loadCredentials()) {
       await this.poll();
-      return;
+    } else {
+      this.writeState();
     }
-    this.writeState();
     this.scheduleCredentialCheck();
   }
 
@@ -229,10 +229,6 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
     return true;
   }
 
-  private get hasWorkingClient(): boolean {
-    return this.client !== null && this.accountState !== 'reconnect_needed';
-  }
-
   private scheduleCredentialCheck(): void {
     if (this.stopped || this.credentialTimer) {
       return;
@@ -246,23 +242,53 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
 
   /**
    * Re-read the credentials file. When a new or changed file is usable, poll
-   * immediately so a sign-in takes effect without a restart. Public for tests.
+   * immediately so a sign-in takes effect without a restart; when the file the
+   * client came from is gone (Disconnect), stop. Runs every 60 s. Public for tests.
    */
   async checkCredentials(): Promise<void> {
     if (this.stopped) {
       return;
     }
-    if (this.loadCredentials()) {
-      if (this.pollTimer) {
-        clearTimeout(this.pollTimer);
-        this.pollTimer = null;
+    try {
+      if (this.client && !this.findCredentials()) {
+        this.credentialsRemoved();
+        return;
       }
-      await this.poll();
-      return;
-    }
-    if (!this.hasWorkingClient) {
+      if (this.loadCredentials()) {
+        if (this.pollTimer) {
+          clearTimeout(this.pollTimer);
+          this.pollTimer = null;
+        }
+        await this.poll();
+      }
+    } finally {
       this.scheduleCredentialCheck();
     }
+  }
+
+  /**
+   * The credentials file disappeared (the settings page's Disconnect, or a hand delete): stop polling, drop the
+   * client, report not_connected, mark the sensors not responding, and keep checking the file every 60 s.
+   */
+  private credentialsRemoved(): void {
+    this.log.warn('Mobile Link credentials were removed. Polling stopped until you connect again from the settings page or with `homebridge-generac login`.');
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
+    this.client = null;
+    this.credentials = null;
+    this.accountState = 'not_connected';
+    this.lastChecked = undefined;
+    this.failures = 0;
+    this.reconnectLogged = false;
+    // The "no credentials found" error is for a start without a sign-in; after a deliberate Disconnect it is noise.
+    this.onceKeys.add('no-credentials');
+    for (const g of this.generators.values()) {
+      g.markUnreachable();
+    }
+    this.attention?.set(false);
+    this.writeState();
   }
 
   // ---------------------------------------------------------------------------
@@ -293,6 +319,11 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
 
   private async doPoll(): Promise<void> {
     if (!this.client || this.stopped) {
+      return;
+    }
+    if (!this.findCredentials()) {
+      // Disconnected between two polls: never poll with a sign-in the user has removed.
+      this.credentialsRemoved();
       return;
     }
     const started = Date.now();
