@@ -22,6 +22,9 @@ export interface GeneracConfig {
   faultOnStopped?: boolean;
   faultOnDisconnected?: boolean;
   attentionSensor?: boolean;
+  exerciseSensor?: boolean;
+  exerciseTime?: string;
+  exerciseHoldMinutes?: number;
   debug?: boolean;
   generators?: GeneratorOverride[];
 }
@@ -33,6 +36,10 @@ export interface ResolvedConfig {
   faultOnStopped: boolean;
   faultOnDisconnected: boolean;
   attentionSensor: boolean;
+  exerciseSensor: boolean;
+  /** 24-hour "HH:MM", or undefined to use the API's Exercise Minutes (SPEC section 9). Malformed values read as undefined. */
+  exerciseTime: string | undefined;
+  exerciseHoldMinutes: number;
   debug: boolean;
   generators: GeneratorOverride[];
 }
@@ -41,6 +48,20 @@ export const POLL_IDLE_MINUTES_DEFAULT = 10;
 export const POLL_IDLE_MINUTES_MIN = 2;
 export const POLL_ACTIVE_SECONDS_DEFAULT = 90;
 export const POLL_ACTIVE_SECONDS_MIN = 60;
+export const EXERCISE_HOLD_MINUTES_DEFAULT = 5;
+export const EXERCISE_HOLD_MINUTES_MIN = 1;
+
+/** A 24-hour "HH:MM" time as the settings page and config.json carry it. */
+export const HHMM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** The `exerciseTime` setting: "HH:MM" trimmed, or undefined when absent, blank or malformed. */
+export function exerciseTimeSetting(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const v = value.trim();
+  return HHMM_PATTERN.test(v) ? v : undefined;
+}
 
 function finiteOr(value: unknown, fallback: number): number {
   const n = typeof value === 'number' ? value : Number(value);
@@ -56,6 +77,9 @@ export function resolveConfig(c: GeneracConfig): ResolvedConfig {
     faultOnStopped: c.faultOnStopped ?? true,
     faultOnDisconnected: c.faultOnDisconnected ?? false,
     attentionSensor: c.attentionSensor ?? false,
+    exerciseSensor: c.exerciseSensor ?? true,
+    exerciseTime: exerciseTimeSetting(c.exerciseTime),
+    exerciseHoldMinutes: Math.max(EXERCISE_HOLD_MINUTES_MIN, finiteOr(c.exerciseHoldMinutes, EXERCISE_HOLD_MINUTES_DEFAULT)),
     debug: c.debug ?? false,
     generators: overrides
       .filter((g) => g && Number.isFinite(Number(g.apparatusId)) && typeof g.name === 'string' && g.name.trim() !== '')
@@ -78,6 +102,9 @@ export function dataDir(storagePath: string): string {
 export function primaryCredentialsPath(storagePath: string): string {
   return path.join(dataDir(storagePath), 'credentials.json');
 }
+
+/** The marker the settings page's Reset leaves under the data directory: the platform removes every cached accessory on its next start. */
+export const RESET_MARKER = 'reset-pending';
 
 /** Where the platform writes its state after every poll (SPEC section 10). */
 export function statePath(storagePath: string): string {
@@ -103,6 +130,15 @@ export function credentialCandidates(storagePath: string | undefined, explicit?:
 
 export function defaultStoragePath(): string {
   return process.env.UIX_STORAGE_PATH || process.env.HOMEBRIDGE_STORAGE_PATH || path.join(os.homedir(), '.homebridge');
+}
+
+/**
+ * The numeric part of a version for HAP's FirmwareRevision (SPEC section 7): "0.1.0" for "0.1.0-beta.1".
+ * HAP truncates a pre-release suffix to "0.1", which is a different version.
+ */
+export function firmwareVersion(version: string): string {
+  const m = /^\d+\.\d+\.\d+/.exec(version.trim());
+  return m ? m[0] : version;
 }
 
 /**

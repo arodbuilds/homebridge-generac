@@ -55,6 +55,17 @@ export interface RawProperty {
   type: number;
 }
 
+/** `alert.eventType` of the exercise-complete event (SPEC section 6). Observed once; see section 16 for the open item. */
+export const EXERCISE_COMPLETE_EVENT = 42;
+
+/** The `alert` object on /Apparatus/details: the most recent event on the unit. */
+export interface RawAlert {
+  eCode?: number | null;
+  eventType?: number | null;
+  timestamp?: string | null;
+  type?: number | null;
+}
+
 export interface RawWeather {
   temperature?: { value: number; unit: string; unitType?: number };
   iconCode?: number;
@@ -97,6 +108,7 @@ export interface RawApparatusDetail {
   warnings?: unknown[];
   maintenance?: unknown[];
   currentAlarm?: string | null;
+  alert?: RawAlert | null;
   [k: string]: unknown;
 }
 

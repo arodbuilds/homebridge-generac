@@ -48,6 +48,11 @@ describe('toGeneratorState on the real Ready fixture', () => {
     assert.equal(s.hoursOfProtection, 20256);
     assert.equal(s.fuelType, 'natural gas');
     assert.equal(s.exerciseTime, '10:05 AM');
+    assert.equal(s.exerciseTimeFromApi, '10:05');
+  });
+
+  it('last exercise from the eventType 42 alert', () => {
+    assert.equal(s.lastExerciseAt?.toISOString(), '2026-09-12T14:06:18.431Z');
   });
 
   it('weather in Fahrenheit and lastSeen as a Date', () => {
@@ -166,6 +171,22 @@ describe('exercise time', () => {
     assert.equal(exerciseTimeLabel([{ name: 'Exercise Minutes', value: 780, type: PROP.EXERCISE_MINUTES }]), '1:00 PM');
     assert.equal(exerciseTimeLabel([{ name: 'Exercise Minutes', value: 9999, type: PROP.EXERCISE_MINUTES }]), null);
     assert.equal(exerciseTimeLabel([]), null);
+  });
+
+  it('exerciseTimeFromApi is 24-hour HH:MM', () => {
+    assert.equal(state({ properties: [{ name: 'Exercise Minutes', value: 0, type: PROP.EXERCISE_MINUTES }] }).exerciseTimeFromApi, '00:00');
+    assert.equal(state({ properties: [{ name: 'Exercise Minutes', value: '780', type: PROP.EXERCISE_MINUTES }] }).exerciseTimeFromApi, '13:00');
+    assert.equal(state({ properties: [] }).exerciseTimeFromApi, null);
+  });
+});
+
+describe('last exercise (SPEC section 6)', () => {
+  it('is null for another event type, a missing alert or a bad timestamp', () => {
+    assert.equal(state({ alert: { eventType: 7, timestamp: '2026-09-12T14:06:18.431Z' } }).lastExerciseAt, null);
+    assert.equal(state({ alert: null }).lastExerciseAt, null);
+    assert.equal(state({ alert: undefined }).lastExerciseAt, null);
+    assert.equal(state({ alert: { eventType: 42, timestamp: 'never' } }).lastExerciseAt, null);
+    assert.equal(state({ alert: { eventType: 42, timestamp: null } }).lastExerciseAt, null);
   });
 });
 

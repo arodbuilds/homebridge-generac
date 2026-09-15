@@ -14,14 +14,18 @@ import type { GeneracPlatform } from './platform.js';
  *   Running          contact OPEN while the engine is running
  *   Fault            contact OPEN on warning / alarm / stopped (see FaultOptions)
  *   Maintenance Due  contact OPEN when Generac flags service
+ *   Exercising       contact OPEN while an exercise is detected, live or retroactively (optional, SPEC section 7)
  *   Battery          starting-battery voltage mapped to level + low-battery flag
  */
 export class GeneratorAccessory {
   private readonly running: Service;
   private readonly fault: Service;
   private readonly maintenance: Service;
+  /** Present only while `exerciseSensor` is on; the platform drives it through `setExercising`. */
+  private readonly exercising: Service | null;
   private readonly battery: Service;
   private state: GeneratorState | null = null;
+  private exerciseOpen = false;
   private displayName: string;
 
   constructor(
@@ -38,11 +42,22 @@ export class GeneratorAccessory {
       .setCharacteristic(Characteristic.Manufacturer, 'Generac')
       .setCharacteristic(Characteristic.Model, initial.model)
       .setCharacteristic(Characteristic.SerialNumber, initial.serial)
-      .setCharacteristic(Characteristic.FirmwareRevision, platform.version);
+      .setCharacteristic(Characteristic.FirmwareRevision, platform.firmware);
 
     this.running = this.contact('Running', 'running');
     this.fault = this.contact('Fault', 'fault');
     this.maintenance = this.contact('Maintenance Due', 'maintenance');
+    const cachedExercising = accessory.getServiceById(Service.ContactSensor, 'exercising');
+    if (platform.config.exerciseSensor) {
+      this.exercising = this.contact('Exercising', 'exercising');
+      this.exercising.getCharacteristic(Characteristic.ContactSensorState).onGet(() => this.contactState(this.exerciseOpen));
+    } else {
+      this.exercising = null;
+      if (cachedExercising) {
+        // The setting was turned off: the cached service goes, like the Attention needed sensor does.
+        accessory.removeService(cachedExercising);
+      }
+    }
 
     this.battery =
       accessory.getService(Service.Battery) ?? accessory.addService(Service.Battery, `${this.displayName} Battery`);
@@ -94,11 +109,7 @@ export class GeneratorAccessory {
     const previous = this.displayName;
     this.displayName = name;
     this.accessory.displayName = name;
-    for (const [svc, label] of [
-      [this.running, 'Running'],
-      [this.fault, 'Fault'],
-      [this.maintenance, 'Maintenance Due'],
-    ] as const) {
+    for (const [svc, label] of this.contacts()) {
       const oldName = `${previous} ${label}`;
       const newName = `${name} ${label}`;
       svc.updateCharacteristic(Characteristic.Name, newName);
@@ -109,6 +120,19 @@ export class GeneratorAccessory {
     }
     this.battery.updateCharacteristic(Characteristic.Name, `${name} Battery`);
     return true;
+  }
+
+  /** Every contact sensor with its label, the optional Exercising one included. */
+  private contacts(): Array<[Service, string]> {
+    const out: Array<[Service, string]> = [
+      [this.running, 'Running'],
+      [this.fault, 'Fault'],
+      [this.maintenance, 'Maintenance Due'],
+    ];
+    if (this.exercising) {
+      out.push([this.exercising, 'Exercising']);
+    }
+    return out;
   }
 
   private contactState(open: boolean | undefined): number {
@@ -138,6 +162,8 @@ export class GeneratorAccessory {
       [this.maintenance, next.maintenanceDue],
     ] as const) {
       svc.updateCharacteristic(Characteristic.ContactSensorState, this.contactState(open));
+    }
+    for (const [svc] of this.contacts()) {
       svc.updateCharacteristic(Characteristic.StatusActive, active);
       svc.updateCharacteristic(Characteristic.StatusFault, faultFlag);
     }
@@ -162,10 +188,26 @@ export class GeneratorAccessory {
     return this.state;
   }
 
+  /** Opens or closes the Exercising sensor (SPEC section 7, service 6). A no-op without the sensor. */
+  setExercising(open: boolean): void {
+    const { Characteristic } = this.platform.api.hap;
+    const changed = open !== this.exerciseOpen;
+    this.exerciseOpen = open;
+    this.exercising?.updateCharacteristic(Characteristic.ContactSensorState, this.contactState(open));
+    if (changed && this.exercising) {
+      this.platform.log.info(`${this.displayName}: Exercising sensor ${open ? 'open' : 'closed'}`);
+    }
+  }
+
+  /** Whether the Exercising sensor is open. */
+  get isExercising(): boolean {
+    return this.exerciseOpen;
+  }
+
   /** Mark the accessory unreachable after repeated poll failures without changing its last state. */
   markUnreachable(): void {
     const { Characteristic } = this.platform.api.hap;
-    for (const svc of [this.running, this.fault, this.maintenance]) {
+    for (const [svc] of this.contacts()) {
       svc.updateCharacteristic(Characteristic.StatusActive, false);
     }
   }

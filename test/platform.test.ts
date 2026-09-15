@@ -17,7 +17,7 @@ import { API_BASE, FakeFetch, fakeLogger, json, loadFixture, makeCredentials, tm
 // ---------------------------------------------------------------------------
 
 class FakeAccessory {
-  readonly services: Service[] = [];
+  services: Service[] = [];
   context: Record<string, unknown> = {};
 
   constructor(
@@ -41,6 +41,10 @@ class FakeAccessory {
     const svc = new Ctor(...args);
     this.services.push(svc);
     return svc;
+  }
+
+  removeService(svc: Service): void {
+    this.services = this.services.filter((s) => s !== svc);
   }
 }
 
@@ -202,7 +206,7 @@ describe('GeneracPlatform', () => {
     const info = acc.getService(Service.AccessoryInformation)!;
     assert.equal(info.getCharacteristic(Characteristic.Manufacturer).value, 'Generac');
     assert.equal(info.getCharacteristic(Characteristic.SerialNumber).value, '3000000001');
-    assert.equal(info.getCharacteristic(Characteristic.FirmwareRevision).value, '0.1.0-beta.1');
+    assert.equal(info.getCharacteristic(Characteristic.FirmwareRevision).value, '0.1.0', 'the numeric part: HAP truncates pre-release suffixes');
   });
 
   it('polls at the idle interval when Ready and the active interval when Running or in fault', async () => {
@@ -408,6 +412,69 @@ describe('GeneracPlatform', () => {
     assert.ok(built.lines('info').some((l) => l.startsWith('Using Mobile Link credentials for you@example.com from ')));
   });
 
+  it('stops when the credentials file disappears (Disconnect) and resumes when one appears again', async () => {
+    fetcher = new FakeFetch();
+    scripted(fetcher, {});
+    const h = harness();
+    const built = build(h);
+    platform = built.platform;
+    await platform.start();
+    assert.equal(platform.account, 'connected');
+    const running = contact(h.registered[0], 'running');
+    const calls = fetcher.calls.length;
+
+    fs.rmSync(primaryCredentialsPath(h.storage));
+    await platform.checkCredentials();
+    assert.equal(platform.account, 'not_connected');
+    assert.equal(readState(h.storage).account.state, 'not_connected');
+    assert.equal(readState(h.storage).account.email, undefined);
+    assert.equal(readState(h.storage).generators.length, 1, 'the last generator state is kept for the page');
+    assert.equal(running.getCharacteristic(Characteristic.StatusActive).value, false);
+    assert.ok(built.lines('warn').some((l) => l.startsWith('Mobile Link credentials were removed.')));
+    assert.equal(built.lines('error').length, 0, 'no "no credentials found" error after a deliberate Disconnect');
+
+    await platform.poll();
+    await platform.checkCredentials();
+    assert.equal(fetcher.calls.length, calls, 'no network while disconnected');
+    assert.equal(built.lines('warn').length, 1, 'the removal is logged once');
+
+    writeCredentials(primaryCredentialsPath(h.storage), makeCredentials({ created_at: '2026-09-16T10:00:00Z' }));
+    await platform.checkCredentials();
+    assert.equal(platform.account, 'connected');
+    assert.equal(running.getCharacteristic(Characteristic.StatusActive).value, true);
+    assert.equal(readState(h.storage).account.email, 'you@example.com');
+  });
+
+  it('a poll that finds the credentials gone stops without touching the network', async () => {
+    fetcher = new FakeFetch();
+    scripted(fetcher, {});
+    const h = harness();
+    platform = build(h).platform;
+    await platform.start();
+    const calls = fetcher.calls.length;
+    fs.rmSync(primaryCredentialsPath(h.storage));
+    await platform.poll();
+    assert.equal(platform.account, 'not_connected');
+    assert.equal(fetcher.calls.length, calls);
+  });
+
+  it('removes every cached accessory once when the Reset marker is present', async () => {
+    fetcher = new FakeFetch();
+    scripted(fetcher, {});
+    const h = harness();
+    const gen = new FakeAccessory('Blue Door', generatorUuid(2053735));
+    const attention = new FakeAccessory(ATTENTION_NAME, attentionUuid);
+    fs.mkdirSync(path.join(h.storage, 'homebridge-generac'), { recursive: true });
+    fs.writeFileSync(path.join(h.storage, 'homebridge-generac', 'reset-pending'), 'now');
+    const built = build(h, { attentionSensor: true }, [gen, attention], false);
+    platform = built.platform;
+    await platform.start();
+    assert.deepEqual(h.unregistered, [gen, attention]);
+    assert.equal(fs.existsSync(path.join(h.storage, 'homebridge-generac', 'reset-pending')), false);
+    assert.equal(h.registered.length, 1, 'the attention sensor is registered fresh, as configured');
+    assert.ok(built.lines('info').some((l) => l === 'Reset from the settings page: removed 2 cached accessories.'));
+  });
+
   it('honours credentialsPath as the second lookup location', async () => {
     fetcher = new FakeFetch();
     scripted(fetcher, {});
@@ -437,6 +504,222 @@ describe('GeneracPlatform', () => {
     await platform.start();
     assert.deepEqual(h2.unregistered, [cachedAttention]);
     assert.equal(h2.registered.length, 1, 'the generator is still registered');
+  });
+
+  describe('Exercising sensor (SPEC section 7, service 6)', () => {
+    const LATER = '2026-09-19T14:06:20.000Z';
+    const withAlert = (timestamp: string | null, status = STATUS.READY): RawApparatusDetail => ({
+      ...ready,
+      apparatusStatus: status,
+      alert: timestamp ? { eCode: 0, eventType: 42, timestamp, type: 5 } : null,
+    });
+    const exercising = (h: Harness): Service => contact(h.registered[0], 'exercising');
+    const isOpen = (svc: Service): boolean =>
+      svc.getCharacteristic(Characteristic.ContactSensorState).value === Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
+
+    it('is created by default with the other sensors and records the first timestamp without opening', async () => {
+      fetcher = new FakeFetch();
+      scripted(fetcher, {});
+      const h = harness();
+      const built = build(h);
+      platform = built.platform;
+      await platform.start();
+      const svc = exercising(h);
+      assert.equal(svc.getCharacteristic(Characteristic.Name).value, 'Blue Door Exercising');
+      assert.equal(isOpen(svc), false, 'first run: no retroactive open for an old exercise');
+      assert.equal(readState(h.storage).generators[0].lastExerciseAt, '2026-09-12T14:06:18.431Z');
+      assert.equal(built.lines('info').some((l) => l.includes('exercise detected')), false);
+    });
+
+    it('opens retroactively when the timestamp advances, holds, then closes when the hold expires', async () => {
+      fetcher = new FakeFetch();
+      const details: Record<number, RawApparatusDetail> = { 2053735: ready };
+      scripted(fetcher, { details });
+      const h = harness();
+      const built = build(h, { exerciseHoldMinutes: 3 });
+      platform = built.platform;
+      let clock = Date.parse('2026-09-19T14:10:00Z');
+      platform.now = () => clock;
+      await platform.start();
+      const svc = exercising(h);
+      assert.equal(isOpen(svc), false);
+
+      details[2053735] = withAlert(LATER);
+      clock += 60_000;
+      await platform.poll();
+      assert.equal(isOpen(svc), true);
+      assert.ok(built.lines('info').some((l) => l.includes(`exercise detected (Mobile Link reports an exercise finished at ${LATER})`)));
+      assert.equal(readState(h.storage).generators[0].lastExerciseAt, LATER);
+
+      clock += 2 * 60_000;
+      await platform.poll();
+      assert.equal(isOpen(svc), true, 'still within the hold');
+      clock += 60_000;
+      platform.refreshExerciseSensors();
+      assert.equal(isOpen(svc), false, 'hold expired');
+      await platform.poll();
+      assert.equal(isOpen(svc), false, 'the same timestamp does not re-open');
+    });
+
+    it('does not re-open on restart with the same persisted timestamp, and does for a newer one', async () => {
+      fetcher = new FakeFetch();
+      const details: Record<number, RawApparatusDetail> = { 2053735: withAlert(LATER) };
+      scripted(fetcher, { details });
+      const h = harness();
+      // A previous run persisted LATER in state.json.
+      fs.mkdirSync(path.dirname(statePath(h.storage)), { recursive: true });
+      const persisted = (ts: string | null) =>
+        JSON.stringify({ account: { state: 'connected' }, generators: [{ id: 2053735, lastExerciseAt: ts }], others: [], updatedAt: '' });
+      fs.writeFileSync(statePath(h.storage), persisted(LATER));
+      platform = build(h).platform;
+      await platform.start();
+      assert.equal(isOpen(exercising(h)), false, 'same timestamp: no re-open');
+      platform.shutdown();
+
+      const h2 = harness();
+      fs.mkdirSync(path.dirname(statePath(h2.storage)), { recursive: true });
+      fs.writeFileSync(statePath(h2.storage), persisted('2026-09-12T14:06:18.431Z'));
+      platform = build(h2).platform;
+      await platform.start();
+      assert.equal(isOpen(exercising(h2)), true, 'newer timestamp than persisted: retroactive open');
+    });
+
+    it('opens live on status 3 and stays open through the hold after the status leaves 3', async () => {
+      fetcher = new FakeFetch();
+      const details: Record<number, RawApparatusDetail> = { 2053735: ready };
+      scripted(fetcher, { details });
+      const h = harness();
+      const built = build(h, { exerciseHoldMinutes: 5 });
+      platform = built.platform;
+      let clock = Date.parse('2026-09-19T14:00:00Z');
+      platform.now = () => clock;
+      await platform.start();
+      const svc = exercising(h);
+
+      details[2053735] = { ...ready, apparatusStatus: STATUS.EXERCISING };
+      await platform.poll();
+      assert.equal(isOpen(svc), true);
+      assert.equal(platform.nextPollMs, 90 * 1000, 'exercising is active');
+      assert.ok(built.lines('info').some((l) => l.includes('exercise detected (status is Exercising)')));
+
+      details[2053735] = ready;
+      clock += 4 * 60_000;
+      await platform.poll();
+      assert.equal(isOpen(svc), true, 'hold since the last observation of status 3');
+      clock += 60_000;
+      platform.refreshExerciseSensors();
+      assert.equal(isOpen(svc), false);
+    });
+
+    it('is not created when exerciseSensor is off, and a cached one is removed', async () => {
+      fetcher = new FakeFetch();
+      scripted(fetcher, {});
+      const cached = new FakeAccessory('Blue Door', generatorUuid(2053735));
+      cached.addService(Service.ContactSensor, 'Blue Door Exercising', 'exercising');
+      const h = harness();
+      platform = build(h, { exerciseSensor: false }, [cached]).platform;
+      await platform.start();
+      assert.equal(cached.getServiceById(Service.ContactSensor, 'exercising'), undefined);
+      assert.ok(cached.getServiceById(Service.ContactSensor, 'running'));
+    });
+  });
+
+  describe('exercise watch window (SPEC section 8)', () => {
+    const at = (h: number, m: number): number => new Date(2026, 8, 19, h, m, 0).getTime();
+
+    it('polls at the active interval from 09:58 until 10:20 for "10:00", and lands the next poll on the window', async () => {
+      fetcher = new FakeFetch();
+      scripted(fetcher, {});
+      const h = harness();
+      platform = build(h, { exerciseTime: '10:00' }).platform;
+      platform.now = () => at(9, 57);
+      await platform.start();
+      assert.equal(platform.nextPollMs, 60 * 1000, 'one minute before the window opens');
+
+      platform.now = () => at(9, 58);
+      await platform.poll();
+      assert.equal(platform.nextPollMs, 90 * 1000);
+      platform.now = () => at(10, 19);
+      await platform.poll();
+      assert.equal(platform.nextPollMs, 90 * 1000);
+      platform.now = () => at(10, 20);
+      await platform.poll();
+      assert.equal(platform.nextPollMs, 10 * 60 * 1000, 'back to idle');
+    });
+
+    it('uses the API exercise time when the setting is absent, and none when neither exists', async () => {
+      fetcher = new FakeFetch();
+      scripted(fetcher, {});
+      const h = harness();
+      platform = build(h).platform;
+      // The fixture says 10:05, so 10:03 is inside the window.
+      platform.now = () => at(10, 3);
+      await platform.start();
+      assert.equal(platform.exerciseMinutes(), 605);
+      assert.equal(platform.nextPollMs, 90 * 1000);
+      platform.shutdown();
+
+      fetcher.restore();
+      fetcher = new FakeFetch();
+      scripted(fetcher, { details: { 2053735: { ...ready, properties: ready.properties!.filter((p) => p.type !== 95) } } });
+      platform = build(harness()).platform;
+      platform.now = () => at(10, 3);
+      await platform.start();
+      assert.equal(platform.exerciseMinutes(), null);
+      assert.equal(platform.nextPollMs, 10 * 60 * 1000);
+    });
+  });
+
+  describe('captures (SPEC section 12)', () => {
+    const capturesOf = (storage: string): string[] => {
+      const dir = path.join(storage, 'homebridge-generac', 'captures');
+      return fs.existsSync(dir) ? fs.readdirSync(dir).sort() : [];
+    };
+
+    it('writes the raw payload on a status change and on a new lastExerciseAt, only with debug on', async () => {
+      fetcher = new FakeFetch();
+      const details: Record<number, RawApparatusDetail> = { 2053735: ready };
+      scripted(fetcher, { details });
+      const h = harness();
+      const built = build(h, { debug: true });
+      platform = built.platform;
+      let clock = Date.parse('2026-09-19T14:00:00Z');
+      platform.now = () => clock;
+      await platform.start();
+      assert.deepEqual(capturesOf(h.storage), [], 'the first poll is not a change');
+
+      details[2053735] = { ...ready, apparatusStatus: STATUS.EXERCISING };
+      clock += 60_000;
+      await platform.poll();
+      assert.deepEqual(capturesOf(h.storage), ['2026-09-19T14-01-00.000Z-status3.json']);
+
+      clock += 60_000;
+      await platform.poll();
+      assert.equal(capturesOf(h.storage).length, 1, 'no change, no capture');
+
+      details[2053735] = { ...ready, alert: { eCode: 0, eventType: 42, timestamp: '2026-09-19T14:02:30.000Z', type: 5 } };
+      clock += 60_000;
+      await platform.poll();
+      const names = capturesOf(h.storage);
+      assert.deepEqual(names, ['2026-09-19T14-01-00.000Z-status3.json', '2026-09-19T14-03-00.000Z-status1.json']);
+      const text = fs.readFileSync(path.join(h.storage, 'homebridge-generac', 'captures', names[1]), 'utf8');
+      assert.equal(JSON.parse(text).alert.eventType, 42);
+      assert.equal(text.includes('access-'), false, 'no access token in a capture');
+      assert.equal(text.includes('refresh-token-value'), false, 'no refresh token in a capture');
+      assert.ok(built.lines('info').some((l) => l.includes('captured the details payload to ')));
+    });
+
+    it('writes nothing without debug', async () => {
+      fetcher = new FakeFetch();
+      const details: Record<number, RawApparatusDetail> = { 2053735: ready };
+      scripted(fetcher, { details });
+      const h = harness();
+      platform = build(h).platform;
+      await platform.start();
+      details[2053735] = { ...ready, apparatusStatus: STATUS.RUNNING };
+      await platform.poll();
+      assert.deepEqual(capturesOf(h.storage), []);
+    });
   });
 
   it('debug setting raises the debug lines to info; otherwise they go to log.debug', async () => {

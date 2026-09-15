@@ -5,6 +5,7 @@ import { describe, it } from 'node:test';
 import {
   credentialCandidates,
   displayNameFor,
+  firmwareVersion,
   pluginVersion,
   primaryCredentialsPath,
   resolveConfig,
@@ -20,6 +21,9 @@ describe('resolveConfig', () => {
       faultOnStopped: true,
       faultOnDisconnected: false,
       attentionSensor: false,
+      exerciseSensor: true,
+      exerciseTime: undefined,
+      exerciseHoldMinutes: 5,
       debug: false,
       generators: [],
     });
@@ -32,6 +36,20 @@ describe('resolveConfig', () => {
     assert.equal(c.batteryLowVoltage, 12.0);
     assert.equal(resolveConfig({ pollIdleMinutes: 30, pollActiveSeconds: 120 }).pollIdleMinutes, 30);
     assert.equal(resolveConfig({ pollIdleMinutes: 30, pollActiveSeconds: 120 }).pollActiveSeconds, 120);
+  });
+
+  it('reads the exercise settings (SPEC section 9) and falls back on junk', () => {
+    const c = resolveConfig({ exerciseSensor: false, exerciseTime: ' 10:00 ', exerciseHoldMinutes: 1 });
+    assert.equal(c.exerciseSensor, false);
+    assert.equal(c.exerciseTime, '10:00');
+    assert.equal(c.exerciseHoldMinutes, 1);
+    assert.equal(resolveConfig({ exerciseHoldMinutes: 0 }).exerciseHoldMinutes, 1, 'minimum is 1');
+    assert.equal(resolveConfig({ exerciseHoldMinutes: 'x' as unknown as number }).exerciseHoldMinutes, 5);
+    assert.equal(resolveConfig({ exerciseTime: '25:00' }).exerciseTime, undefined, 'malformed reads as absent');
+    assert.equal(resolveConfig({ exerciseTime: '9:00' }).exerciseTime, undefined, 'two-digit hours only, as the page validates');
+    assert.equal(resolveConfig({ exerciseTime: '' }).exerciseTime, undefined);
+    assert.equal(resolveConfig({ exerciseTime: 1000 as unknown as string }).exerciseTime, undefined);
+    assert.equal(resolveConfig({ exerciseTime: '23:59' }).exerciseTime, '23:59');
   });
 
   it('keeps only well-formed generator overrides', () => {
@@ -83,5 +101,12 @@ describe('paths', () => {
 
   it('pluginVersion reads package.json', () => {
     assert.equal(pluginVersion(), '0.1.0-beta.1');
+  });
+
+  it('firmwareVersion keeps the numeric part only (SPEC section 7)', () => {
+    assert.equal(firmwareVersion('0.1.0-beta.1'), '0.1.0');
+    assert.equal(firmwareVersion('1.0.0'), '1.0.0');
+    assert.equal(firmwareVersion('1.2.3+build.4'), '1.2.3');
+    assert.equal(firmwareVersion('0.0.0'), '0.0.0');
   });
 });

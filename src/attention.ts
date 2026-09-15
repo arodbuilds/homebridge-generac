@@ -22,7 +22,7 @@ export class AttentionAccessory {
       .setCharacteristic(Characteristic.Manufacturer, 'Generac for Homebridge')
       .setCharacteristic(Characteristic.Model, 'Attention needed')
       .setCharacteristic(Characteristic.SerialNumber, 'attention')
-      .setCharacteristic(Characteristic.FirmwareRevision, platform.version);
+      .setCharacteristic(Characteristic.FirmwareRevision, platform.firmware);
 
     this.sensor = accessory.getService(Service.OccupancySensor) ?? accessory.addService(Service.OccupancySensor, ATTENTION_NAME);
     this.sensor.setCharacteristic(Characteristic.Name, ATTENTION_NAME);

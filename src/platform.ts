@@ -1,24 +1,39 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import type { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig } from 'homebridge';
 import { GeneratorAccessory } from './accessory.js';
 import { ApiError, backoffMs, InvalidGrantError, MobileLinkClient, readCredentials } from './api.js';
 import { ATTENTION_NAME, AttentionAccessory } from './attention.js';
+import { capturesDir, writeCapture } from './captures.js';
+import { ExerciseTracker, inWatchWindow, msUntilWatchWindow, parseHHMM } from './exercise.js';
 import { isActive, toGeneratorState, type GeneratorState } from './model.js';
 import {
   credentialCandidates,
+  dataDir,
   displayNameFor,
+  firmwareVersion,
   PLATFORM_NAME,
   PLUGIN_NAME,
   pluginVersion,
+  RESET_MARKER,
   resolveConfig,
   statePath,
   type GeneracConfig,
   type ResolvedConfig,
 } from './settings.js';
-import { buildStateFile, writeStateFile, type AccountSnapshot, type AccountState, type OtherDevice } from './state.js';
-import { DEVICE_TYPE, DEVICE_TYPE_LABEL, type RawApparatus, type StoredCredentials } from './types.js';
+import {
+  buildStateFile,
+  readStateFile,
+  toGeneratorSnapshot,
+  writeStateFile,
+  type AccountSnapshot,
+  type AccountState,
+  type GeneratorSnapshot,
+  type OtherDevice,
+} from './state.js';
+import { DEVICE_TYPE, DEVICE_TYPE_LABEL, type RawApparatus, type RawApparatusDetail, type StoredCredentials } from './types.js';
 
-/** How often the credentials file is re-read while there is no working client (SPEC section 4.4). */
+/** How often the credentials file is re-read (SPEC section 4.4): for a sign-in while there is no working client, and for a Disconnect while there is one. */
 export const CREDENTIAL_CHECK_MS = 60 * 1000;
 /** Retry interval after `invalid_grant` (SPEC section 4.3). */
 export const RECONNECT_RETRY_MS = 60 * 60 * 1000;
@@ -34,6 +49,8 @@ interface LoadedCredentials {
 export class GeneracPlatform implements DynamicPlatformPlugin {
   readonly config: ResolvedConfig;
   readonly version = pluginVersion();
+  /** What the accessories report as FirmwareRevision (SPEC section 7). */
+  readonly firmware = firmwareVersion(this.version);
 
   private readonly storagePath: string;
   private readonly credentialsPath: string | undefined;
@@ -41,6 +58,11 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
 
   private readonly cached = new Map<string, PlatformAccessory>();
   private readonly generators = new Map<number, GeneratorAccessory>();
+  /** Exercise detection per generator (SPEC section 7), seeded from state.json on start. */
+  private readonly trackers = new Map<number, ExerciseTracker>();
+  private readonly holdTimers = new Map<number, NodeJS.Timeout>();
+  /** `lastExerciseAt` per generator as state.json held it on start; a missing entry means first run for that unit. */
+  private readonly persistedExercise = new Map<number, string | null>();
   private others = new Map<number, OtherDevice>();
   private attention: AttentionAccessory | null = null;
 
@@ -58,6 +80,9 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
 
   /** Delay of the most recently scheduled poll in milliseconds, for the debug log and tests. */
   nextPollMs: number | null = null;
+
+  /** The clock, replaceable by tests (the hold timer and the watch window read it). */
+  now: () => number = Date.now;
 
   constructor(
     readonly log: Logger,
@@ -91,12 +116,14 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
    * await the first poll.
    */
   async start(): Promise<void> {
+    this.applyResetMarker();
     this.setupAttention();
+    this.loadPersistedExercise();
     if (this.loadCredentials()) {
       await this.poll();
-      return;
+    } else {
+      this.writeState();
     }
-    this.writeState();
     this.scheduleCredentialCheck();
   }
 
@@ -110,6 +137,28 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       clearTimeout(this.credentialTimer);
       this.credentialTimer = null;
     }
+    for (const timer of this.holdTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.holdTimers.clear();
+  }
+
+  /**
+   * The settings page's Reset dialog leaves a marker (SPEC section 11.3 E, "Removes every generator and its sensors
+   * from the Home app"): every cached accessory goes on this start, once, and the marker with it.
+   */
+  private applyResetMarker(): void {
+    const marker = path.join(dataDir(this.storagePath), RESET_MARKER);
+    if (!fs.existsSync(marker)) {
+      return;
+    }
+    const accessories = [...this.cached.values()];
+    if (accessories.length > 0) {
+      this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, accessories);
+      this.cached.clear();
+    }
+    fs.rmSync(marker, { force: true });
+    this.log.info(`Reset from the settings page: removed ${accessories.length} cached accessor${accessories.length === 1 ? 'y' : 'ies'}.`);
   }
 
   // ---------------------------------------------------------------------------
@@ -202,10 +251,6 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
     return true;
   }
 
-  private get hasWorkingClient(): boolean {
-    return this.client !== null && this.accountState !== 'reconnect_needed';
-  }
-
   private scheduleCredentialCheck(): void {
     if (this.stopped || this.credentialTimer) {
       return;
@@ -219,23 +264,53 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
 
   /**
    * Re-read the credentials file. When a new or changed file is usable, poll
-   * immediately so a sign-in takes effect without a restart. Public for tests.
+   * immediately so a sign-in takes effect without a restart; when the file the
+   * client came from is gone (Disconnect), stop. Runs every 60 s. Public for tests.
    */
   async checkCredentials(): Promise<void> {
     if (this.stopped) {
       return;
     }
-    if (this.loadCredentials()) {
-      if (this.pollTimer) {
-        clearTimeout(this.pollTimer);
-        this.pollTimer = null;
+    try {
+      if (this.client && !this.findCredentials()) {
+        this.credentialsRemoved();
+        return;
       }
-      await this.poll();
-      return;
-    }
-    if (!this.hasWorkingClient) {
+      if (this.loadCredentials()) {
+        if (this.pollTimer) {
+          clearTimeout(this.pollTimer);
+          this.pollTimer = null;
+        }
+        await this.poll();
+      }
+    } finally {
       this.scheduleCredentialCheck();
     }
+  }
+
+  /**
+   * The credentials file disappeared (the settings page's Disconnect, or a hand delete): stop polling, drop the
+   * client, report not_connected, mark the sensors not responding, and keep checking the file every 60 s.
+   */
+  private credentialsRemoved(): void {
+    this.log.warn('Mobile Link credentials were removed. Polling stopped until you connect again from the settings page or with `homebridge-generac login`.');
+    if (this.pollTimer) {
+      clearTimeout(this.pollTimer);
+      this.pollTimer = null;
+    }
+    this.client = null;
+    this.credentials = null;
+    this.accountState = 'not_connected';
+    this.lastChecked = undefined;
+    this.failures = 0;
+    this.reconnectLogged = false;
+    // The "no credentials found" error is for a start without a sign-in; after a deliberate Disconnect it is noise.
+    this.onceKeys.add('no-credentials');
+    for (const g of this.generators.values()) {
+      g.markUnreachable();
+    }
+    this.attention?.set(false);
+    this.writeState();
   }
 
   // ---------------------------------------------------------------------------
@@ -266,6 +341,11 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
 
   private async doPoll(): Promise<void> {
     if (!this.client || this.stopped) {
+      return;
+    }
+    if (!this.findCredentials()) {
+      // Disconnected between two polls: never poll with a sign-in the user has removed.
+      this.credentialsRemoved();
       return;
     }
     const started = Date.now();
@@ -318,6 +398,12 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       for (const id of this.generators.keys()) {
         if (!seenIds.has(id)) {
           this.generators.delete(id);
+          this.trackers.delete(id);
+          const timer = this.holdTimers.get(id);
+          if (timer) {
+            clearTimeout(timer);
+            this.holdTimers.delete(id);
+          }
         }
       }
 
@@ -361,13 +447,49 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       return;
     }
 
-    const intervalMs = anyActive ? this.config.pollActiveSeconds * 1000 : this.config.pollIdleMinutes * 60 * 1000;
+    const intervalMs = this.nextInterval(anyActive);
     this.debug(
       `Poll finished in ${Date.now() - started} ms: ${count} generator(s), ${anyActive ? 'active' : 'idle'}, ` +
         `next poll in ${Math.round(intervalMs / 1000)}s`,
     );
     this.writeState();
     this.schedule(intervalMs);
+  }
+
+  /**
+   * The delay until the next poll (SPEC section 8): the active interval while any generator is active or the
+   * exercise watch window is open, else the idle interval, cut short so the next poll lands when the window opens.
+   */
+  private nextInterval(anyActive: boolean): number {
+    const active = this.config.pollActiveSeconds * 1000;
+    const idle = this.config.pollIdleMinutes * 60 * 1000;
+    const minutes = this.exerciseMinutes();
+    if (minutes === null) {
+      return anyActive ? active : idle;
+    }
+    const now = new Date(this.now());
+    if (inWatchWindow(minutes, now)) {
+      return active;
+    }
+    return Math.min(anyActive ? active : idle, msUntilWatchWindow(minutes, now));
+  }
+
+  /**
+   * The exercise time the watch window follows, as minutes past local midnight: the `exerciseTime` setting,
+   * else the first generator's Exercise Minutes from the API, else null (no window).
+   */
+  exerciseMinutes(): number | null {
+    const configured = parseHHMM(this.config.exerciseTime);
+    if (configured !== null) {
+      return configured;
+    }
+    for (const gen of this.generators.values()) {
+      const fromApi = parseHHMM(gen.current?.exerciseTimeFromApi);
+      if (fromApi !== null) {
+        return fromApi;
+      }
+    }
+    return null;
   }
 
   /** Returns true when the generator is in an "active" state that warrants faster polling. */
@@ -387,6 +509,7 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
     const displayName = displayNameFor(this.config, raw.apparatusId, state.name);
 
     let gen = this.generators.get(raw.apparatusId);
+    const previousStatus = gen?.current?.status;
     if (!gen) {
       let acc = this.cached.get(uuid);
       let restored = false;
@@ -414,7 +537,85 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
       }
       gen.update(state);
     }
+    const retroactive = this.observeExercise(raw.apparatusId, gen, state);
+    const statusChanged = previousStatus !== undefined && previousStatus !== state.status;
+    if (this.config.debug && (statusChanged || retroactive)) {
+      this.capture(gen, detail, state.status);
+    }
     return isActive(state);
+  }
+
+  /** A debug capture of the raw payload (SPEC section 12). Never blocks a poll: a write failure is warned about once. */
+  private capture(gen: GeneratorAccessory, detail: RawApparatusDetail, status: number): void {
+    const dir = capturesDir(this.storagePath);
+    try {
+      const file = writeCapture(dir, detail, status, new Date(this.now()));
+      this.debug(`${gen.accessory.displayName}: captured the details payload to ${file}`);
+    } catch (err) {
+      this.once(`capture-${(err as Error).message}`, 'warn', `Could not write a capture under ${dir}: ${(err as Error).message}`);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Exercising sensor (SPEC section 7, service 6)
+  // ---------------------------------------------------------------------------
+
+  private loadPersistedExercise(): void {
+    const state = readStateFile(statePath(this.storagePath));
+    for (const g of state?.generators ?? []) {
+      if (typeof g.id === 'number') {
+        this.persistedExercise.set(g.id, typeof g.lastExerciseAt === 'string' ? g.lastExerciseAt : null);
+      }
+    }
+  }
+
+  /** Feeds one poll into the generator's tracker and drives the sensor. Returns true on a retroactive detection. */
+  private observeExercise(id: number, gen: GeneratorAccessory, state: GeneratorState): boolean {
+    let tracker = this.trackers.get(id);
+    if (!tracker) {
+      tracker = new ExerciseTracker(this.persistedExercise.get(id), this.config.exerciseHoldMinutes * 60 * 1000);
+      this.trackers.set(id, tracker);
+    }
+    const now = this.now();
+    const result = tracker.observe(state.status, state.lastExerciseAt, now);
+    if (result.triggered) {
+      const how = result.retroactive
+        ? `Mobile Link reports an exercise finished at ${state.lastExerciseAt?.toISOString() ?? 'unknown'}`
+        : 'status is Exercising';
+      this.log.info(`${gen.accessory.displayName}: exercise detected (${how})`);
+      this.scheduleHoldExpiry(id, gen, tracker);
+    }
+    gen.setExercising(result.open);
+    return result.retroactive;
+  }
+
+  /** Closes the sensor when the hold runs out between polls. */
+  private scheduleHoldExpiry(id: number, gen: GeneratorAccessory, tracker: ExerciseTracker): void {
+    const existing = this.holdTimers.get(id);
+    if (existing) {
+      clearTimeout(existing);
+      this.holdTimers.delete(id);
+    }
+    const remaining = tracker.holdRemaining(this.now());
+    if (remaining === null || this.stopped) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      this.holdTimers.delete(id);
+      gen.setExercising(tracker.isOpen(this.now()));
+    }, remaining);
+    timer.unref();
+    this.holdTimers.set(id, timer);
+  }
+
+  /** Re-evaluates every Exercising sensor against the clock. Public for tests, which drive the clock by hand. */
+  refreshExerciseSensors(): void {
+    for (const [id, gen] of this.generators) {
+      const tracker = this.trackers.get(id);
+      if (tracker) {
+        gen.setExercising(tracker.isOpen(this.now()));
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -426,11 +627,24 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
     return [...this.generators.values()].map((g) => g.current).filter((s): s is GeneratorState => s !== null);
   }
 
+  /** The generator states as the state file carries them, with the persisted `lastExerciseAt` per unit. */
+  private snapshots(): GeneratorSnapshot[] {
+    const out: GeneratorSnapshot[] = [];
+    for (const [id, gen] of this.generators) {
+      const state = gen.current;
+      if (state) {
+        const tracker = this.trackers.get(id);
+        out.push(toGeneratorSnapshot(state, tracker ? tracker.lastExerciseAt : (this.persistedExercise.get(id) ?? null)));
+      }
+    }
+    return out;
+  }
+
   private writeState(): void {
     const file = statePath(this.storagePath);
     const account: AccountSnapshot = { state: this.accountState, email: this.credentials?.email, lastChecked: this.lastChecked };
     try {
-      writeStateFile(file, buildStateFile(account, this.generatorStates, this.others.values()));
+      writeStateFile(file, buildStateFile(account, this.snapshots(), this.others.values()));
     } catch (err) {
       this.once(`state-${(err as Error).message}`, 'warn', `Could not write ${file}: ${(err as Error).message}`);
     }
