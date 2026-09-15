@@ -20,6 +20,17 @@
     "supports-hap"
   ],
   "main": "dist/index.js",
+  "bin": {
+    "homebridge-generac": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "config.schema.json",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
   "engines": {
     "node": "^22.10.0 || ^24.0.0",
     "homebridge": "^1.8.0 || ^2.0.0"
@@ -28,10 +39,9 @@
     "build": "rimraf ./dist && tsc",
     "lint": "eslint . --max-warnings=0",
     "prepublishOnly": "npm run lint && npm run build",
+    "test": "npm run lint && npm run build && npm run test:unit",
+    "test:unit": "rimraf ./build-test && tsc -p tsconfig.test.json && node --test build-test/test/*.test.js",
     "watch": "npm run build && npm link && nodemon"
-  },
-  "dependencies": {
-    "homebridge-lib": "^8.1.4"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
