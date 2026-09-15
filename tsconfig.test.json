@@ -8,6 +8,10 @@
   },
   "include": [
     "src",
-    "test"
+    "test",
+    "homebridge-ui/src/copy.ts",
+    "homebridge-ui/src/format.ts",
+    "homebridge-ui/src/model.ts",
+    "homebridge-ui/src/validate.ts"
   ]
 }

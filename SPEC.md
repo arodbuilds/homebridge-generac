@@ -280,7 +280,7 @@ Generac additions:
 - `Treat a lost connection as a fault` default off, help `Off by default. Wi-Fi drops are common and the sensors already show Not responding.`
 - `Attention needed sensor` default off, help `Adds an occupancy sensor to HomeKit that turns on when the plugin needs you to reconnect.`
 - `Exercising sensor` default on, help `Adds a sensor that opens while the weekly exercise runs, or when Mobile Link reports one finished. Use it to confirm the generator exercised this week.`
-- `Exercise time` (HH:MM, 24-hour, optional) help `When your generator's weekly exercise starts. Prefilled from Mobile Link; correct it if your unit starts at a different time. The plugin checks more often around this time every day.` Error `Enter a time as HH:MM, for example 10:00.`
+- `Exercise time` (HH:MM, 24-hour, optional, placeholder `e.g. 10:00`) help `When your generator's weekly exercise starts. Prefilled from Mobile Link; correct it if your unit starts at a different time. The plugin checks more often around this time every day.` Error `Enter a time as HH:MM, for example 10:00.`
 - `Exercise hold (minutes)` default 5, min 1, help `How long the Exercising sensor stays open after an exercise is detected.` Error `Minimum is 1 minute.`
 - `Debug logging` default off, help `Verbose logging. Your password is never logged, even with this on.`
 - Reset dialog lines: `Signs out of Mobile Link and removes the saved sign-in.`, `Removes every generator and its sensors from the Home app.`, `Clears all settings on this page.`
