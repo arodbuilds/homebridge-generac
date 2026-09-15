@@ -1,0 +1,107 @@
+{
+  "apparatusId": 2053735,
+  "name": "Blue Door",
+  "serialNumber": "3000000001",
+  "apparatusClassification": 0,
+  "panelId": "21",
+  "activationDate": "2024-05-24T00:00:00Z",
+  "deviceType": "wifi",
+  "deviceSsid": "MLG00000",
+  "shortDeviceId": null,
+  "networkType": "wifi",
+  "apparatusStatus": 1,
+  "heroImageUrl": "https://soa.generac.com/selfhelp/media/6af4702c-b653-4abb-988d-efc4e67c2413",
+  "statusLabel": "Ready to run",
+  "statusText": "Your generator is ready to run.",
+  "alarmEcodeLabel": "",
+  "eCodeLabel": null,
+  "weather": {
+    "temperature": {
+      "value": 75,
+      "unit": "F",
+      "unitType": 18
+    },
+    "iconCode": 1
+  },
+  "isConnected": true,
+  "isConnecting": false,
+  "serviceModeEnabled": false,
+  "showWarning": false,
+  "hasMaintenanceAlert": false,
+  "lastSeen": "2026-09-15T15:15:10.473+00:00",
+  "connectionTimestamp": "2025-04-08T23:26:19.432+00:00",
+  "address": {
+    "line1": "1 Example Lane",
+    "line2": null,
+    "city": "Anytown",
+    "region": "GA",
+    "country": "US",
+    "postalCode": "30000"
+  },
+  "properties": [
+    {
+      "name": "Exercise Minutes",
+      "value": "605",
+      "type": 95
+    },
+    {
+      "name": "Battery Voltage",
+      "value": "13.6",
+      "type": 70
+    },
+    {
+      "name": "Fuel Type",
+      "value": "1",
+      "type": 88
+    },
+    {
+      "name": "Engine Hours",
+      "value": 17,
+      "type": 71
+    },
+    {
+      "name": "Hours of Protection",
+      "value": 20256,
+      "type": 32
+    }
+  ],
+  "tuProperties": [],
+  "subscription": {
+    "type": 2,
+    "status": 1,
+    "isLegacy": false,
+    "isDunning": false
+  },
+  "enrolledInVpp": false,
+  "hasActiveVppEvent": false,
+  "productInfo": [
+    {
+      "name": "ProductType",
+      "value": "gs",
+      "type": 0
+    },
+    {
+      "name": "Description",
+      "value": "22KW/999 GUARD-NO T/SW AL",
+      "type": 0
+    }
+  ],
+  "disconnectedNotification": {
+    "id": 1,
+    "receiveEmail": true,
+    "receiveSms": true,
+    "receivePush": true,
+    "snoozeUntil": null
+  },
+  "hasDisconnectedNotificationsOn": true,
+  "alert": {
+    "eCode": 0,
+    "eventType": 42,
+    "timestamp": "2026-09-12T14:06:18.431Z",
+    "type": 5
+  },
+  "currentAlarm": "0",
+  "alarms": [],
+  "maintenance": [],
+  "warnings": []
+}

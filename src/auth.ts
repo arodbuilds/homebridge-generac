@@ -187,7 +187,7 @@ function isRedirect(res: Response): boolean {
   return res.status === 302 || res.status === 303;
 }
 
-function extractAuth0ErrorCode(html: string): string | null {
+export function extractAuth0ErrorCode(html: string): string | null {
   const m = /data-error-code="([^"]+)"/.exec(html);
   return m ? m[1] : null;
 }
@@ -327,7 +327,7 @@ async function handleCustomPrompt(ctx: Ctx, loc: string): Promise<string> {
   return nextState;
 }
 
-function challengeType(pathname: string): MfaType | null {
+export function challengeType(pathname: string): MfaType | null {
   for (const [frag, type] of Object.entries(CODE_CHALLENGES)) {
     if (pathname.includes(frag)) {
       return type;
