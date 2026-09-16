@@ -43,7 +43,7 @@ Successor to the unmaintained `homebridge-mobilelink`. Ground-up rewrite; no cod
 
 - npm: `homebridge-generac`. GitHub: `arodbuilds/homebridge-generac`, default branch `latest`.
 - Platform alias in config.json: `Generac`. Default `name`: `Generac`.
-- Display name in UI and README: `Generac for Homebridge`.
+- Display name in package.json (`displayName`): `Generac`. Banner, README title and settings-page banner: `Generac for Homebridge`.
 - Versioning: `0.1.0-beta.1` first, betas on the npm `beta` tag, then `1.0.0` as first stable.
 - Node `^20.18.0 || ^22.10.0`. Homebridge `^1.8.0 || ^2.0.0-beta.0`.
 - Runtime dependencies: `@homebridge/plugin-ui-utils` only. Auth and HTTP use Node built-ins.
@@ -197,10 +197,11 @@ The login runs inside the UI server process. `/connect/start` calls `login()` wi
 ### 11.1 Anatomy, top to bottom
 1. Banner (shell banner component; the only place the plugin carries colour).
 2. Intro paragraphs (11.3 A).
+2a. Affiliation line, muted, directly under the intro (11.3 A). It is never in the footer.
 3. "Mobile Link account" heading, one line of help, the account card in one of four states (11.3 B). Connect and Reconnect replace the card in place with the two-step flow (11.3 C).
 4. "Generators" heading, one line of help, one card per generator (11.3 D) or the empty line. Under the cards, one "Also on your account" line per non-generator device.
 5. "Settings" heading and a single collapsed Disclosure (11.3 E). Nothing else shows when collapsed.
-6. Closing line, CreditFooter (mark, name, version, site link with `?ref=generac`, issues link), affiliation line.
+6. Closing line, CreditFooter (mark, name, version, site link with `?ref=generac`, issues link).
 
 Desktop max width 800 px in the host modal; phone layout at 390 px collapses the 12-column grid to single column. Both host themes.
 
@@ -227,7 +228,7 @@ Generac additions:
 - Generators empty: `No generators yet. Connect your Mobile Link account above and they appear here within a minute.`
 - Settings heading: `Settings`
 - Closing: `Your generators appear in the Home app as sensors. Add them to automations; for example, turn on a light when Running opens.`
-- Affiliation: `Not affiliated with Generac. Generac and Mobile Link are trademarks of Generac Power Systems, Inc.`
+- Affiliation: `Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobile Link are its trademarks. Uses Generac's undocumented Mobile Link API, which can change without notice.`
 
 **B. Account card**
 - Card title: `Mobile Link account`
@@ -275,7 +276,7 @@ Generac additions:
 - `Name` (required, default `Generac`)
 - `Poll interval while idle (minutes)` default 10, min 2, help `Mobile Link updates every few minutes and limits how often you can check. Faster than this rarely helps.` Error `Minimum is 2 minutes.`
 - `Poll interval while running or in fault (seconds)` default 90, min 60, help `Used while a generator is running, exercising, or reporting a problem.` Error `Minimum is 60 seconds.`
-- `Low battery threshold (volts)` default 12.0, help `A healthy starting battery on charge reads 13.4 to 13.8 V.`
+- `Low battery threshold (volts)` default 12.0, help `A healthy starting battery on charge reads 13.4 to 13.8 V.` Renders with one decimal place (12.0) on load and after blur and accepts one decimal on input. Error for more than one decimal: `Enter volts with one decimal place, for example 12.0.`
 - `Treat Stopped as a fault` default on, help `Stopped means the control switch is in OFF and the generator won't start during an outage.`
 - `Treat a lost connection as a fault` default off, help `Off by default. Wi-Fi drops are common and the sensors already show Not responding.`
 - `Attention needed sensor` default off, help `Adds an occupancy sensor to HomeKit that turns on when the plugin needs you to reconnect.`
@@ -307,6 +308,8 @@ Generac additions:
 
 `assets/` holds the Claude Design export: `generac-512.png`, `generac-192.png`, `generac-mark.svg`, `generac-dark.svg`, `generac-light.svg`, `generac-footer.svg`, `generac-banner.png` (1280×320), `generac-social.png` (1280×640). Banner text: "Generac for Homebridge" and "Your standby generator in HomeKit. Status, battery, run hours and alerts from Mobile Link."
 
+`assets/screenshots/` holds the masked README screenshots, rendered against a fake host with fictional data: `account-connected.png`, `connect-code.png`, `generator-ready.png`, `generator-fault.png` and `settings-advanced.png`. Screenshots never show a real email, serial number, address or account name. The banner and the screenshots are referenced from the repository and are not shipped in the npm package.
+
 Open item: the mark colour is #E8862B, which is close to Generac's brand orange. It is to be changed to a colour clearly apart from Generac orange and Peloton's oxide red before 1.0.0.
 
 ## 14. Testing
@@ -321,7 +324,7 @@ Open item: the mark colour is #E8862B, which is close to Generac's brand orange.
 
 1. Build 1: source, tooling, CLAUDE.md, release workflow, tests, version 0.1.0-beta.1. Pi test via symlink from the Homebridge web terminal.
 2. Build 2: state file consumer, UI server, settings page, `customUi`, Rename, Exercising sensor with watch window and retroactive detection, captures. Chrome pass on the Pi in both themes and at phone width.
-3. Build 3: README with masked screenshots, banner, CHANGELOG, GitHub pre-release `v0.1.0-beta.1` published to npm `beta` with provenance via trusted publishing.
+3. Build 3: affiliation line moved, README with masked screenshots, SECURITY.md, CHANGELOG dated, release workflow with a one-time token fallback for the first publish. Then: GitHub pre-release `v0.1.0-beta.1` publishes to npm `beta` with provenance; switch the npm package to a GitHub Actions trusted publisher and delete the token; reinstall from npm on the Pi through the Homebridge UI; r/homebridge tester post.
 4. Soak, then r/homebridge tester post, then `1.0.0`, then the Homebridge verification issue (keywords must include `supports-hap`).
 5. 0.2.0: propane tank monitors.
 
@@ -333,6 +336,7 @@ Open item: the mark colour is #E8862B, which is close to Generac's brand orange.
 - 2026-09-15: Keep by property `type`, not `name`.
 - 2026-09-15: Rename kept from Design; "hide sensors" dropped.
 - 2026-09-15: Exercise time is a setting prefilled from the API, not derived from it (API said 10:05, unit starts at 10:00). Exercise detection is primarily retroactive via the eventType 42 timestamp; the watch window makes live detection likely rather than lucky.
+- 2026-09-15: Live pass on the Pi passed both themes. Alex's Reset and Connect pass found two page defects, fixed in build 3: the account card did not leave the Connect flow's view after the code step, and the Reset dialog rendered off-screen. The platform side worked: new credentials were picked up within 41 seconds with no restart.
 - Open: fuel type enum values 2 and 3 are presumed. Confirm on a propane unit.
 - Open: `tuProperties` shape for tank monitors. Needs a type-2 fixture from a tester.
 - Open: icon colour (section 13).
