@@ -44,7 +44,7 @@ Explore the repository to build better against this product; `SPEC.md` section 1
 - Theme comes from the host (`body.dark-mode` or `body[class*="config-ui-x-dark-mode"]`); the plugin never sets its own. Every token reads the host variable with a fallback, `var(--bs-x, fallback)`, exactly as index.css does; the two dark-only selectors this system used to carry are gone.
 
 ## Visual foundations
-- **Colour**: host Bootstrap 5. Light: page #fff, text #212529, secondary rgba(33,37,41,.75), rules #dee2e6, card border rgba(0,0,0,.176), subtle strip rgba(33,37,41,.03), locked #e9ecef, link #0d6efd. Dark: #1c1c1c / #fff / rgba(222,226,230,.75) / #495057 / rgba(255,255,255,.15) / #262626 / #343a40 / #6ea8fe. Primary button #607d8b (blue-grey, from the Homebridge UI) — the only filled button per section. Danger #dc3545, success #198754, badge #6c757d, warning #fff3cd/#664d03. Banner field #16263a, mark #f2f2f3.
+- **Colour**: host Bootstrap 5. Light: page #fff, text #212529, secondary rgba(33,37,41,.75), rules #dee2e6, card border rgba(0,0,0,.176), subtle strip rgba(33,37,41,.03), locked #e9ecef, link #0d6efd. Dark: #1c1c1c / #fff / rgba(222,226,230,.75) / #495057 / rgba(255,255,255,.15) / #262626 / #343a40 / #6ea8fe. Primary button #607d8b (blue-grey, from the Homebridge UI): the only filled button per section. Danger #dc3545, success #198754, badge #6c757d, warning #fff3cd/#664d03. Banner field #16263a, mark #f2f2f3.
 - **Type**: host system stack; no webfonts. Body 14.4px/300/1.5. Labels 14.4px/600. Help 12.6px/300/1.4. h2 20px/300. Controls 16px. Badges 11.5px/600. Small buttons 13.5px uppercase. Card titles bold. IDs and secrets monospace.
 - **Spacing**: 16px page side padding, 24px between sections, 16px card padding and card gap, 16px under each field, 12px inside panels, 8px grid column gap, 12px tile gap. 12-column grid; every cell full width below 600px.
 - **Radii**: controls and cards 6px, buttons and badges 4px, modal 8px, step disc fully round.
@@ -52,7 +52,7 @@ Explore the repository to build better against this product; `SPEC.md` section 1
 - **Borders and rules**: 1px `--ns-border` under h2, above footers and result bars. A 3px left rule marks the preview line. Dashed red border marks bad SMS characters.
 - **Shadows**: none inside the plugin page. The host modal carries its own shadow. Focus rings are Bootstrap's 4px translucent ring.
 - **Hover**: outlined buttons get a `rgba(128,128,128,.08)` wash and keep their outline (never fill); press is `.2`. Text buttons underline. Chooser tiles turn their border to the link colour with a 1px ring. Filled primary darkens slightly.
-- **Disabled**: full opacity, transparent fill, border-colour border, secondary text, `cursor: not-allowed` — never a dimmed copy.
+- **Disabled**: full opacity, transparent fill, border-colour border, secondary text, `cursor: not-allowed`, never a dimmed copy.
 - **Animation**: none except 150ms ease colour transitions on buttons and the variables chevron rotate.
 - **Transparency/blur**: none; secondary text uses alpha colour, the modal backdrop is rgba(0,0,0,.55). No blur.
 - **Layout**: single column page in a modal (400–800px wide). The "Fix these before saving" box renders in the page flow after Settings and above the closing paragraph, not sticky. Touch targets 44px on coarse pointers.
