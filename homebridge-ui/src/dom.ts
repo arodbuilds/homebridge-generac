@@ -62,6 +62,8 @@ export interface FieldOptions {
   max?: number;
   step?: string;
   monospace?: boolean;
+  /** How a number field shows a value on load and after blur; null leaves the typed text alone (an invalid value keeps its message). */
+  format?: (value: number) => string | null;
 }
 
 /** One line of field help. Carries `ns-help` like the shell so a help toggle could collapse it. */
@@ -96,14 +98,24 @@ export function textField(label: string, value: string, onChange: (value: string
   return wrapField(id, label, input, opts);
 }
 
-/** A number input; `onChange` receives the parsed number or NaN. */
+/** A number input; `onChange` receives the parsed number or NaN. With `format`, the value is shown formatted on load and after blur. */
 export function numberField(label: string, value: number, onChange: (value: number) => void, opts: FieldOptions = {}): HTMLElement {
   const id = uniqueId();
+  const shown = (v: number): string => (Number.isFinite(v) ? opts.format?.(v) ?? String(v) : '');
   const input = el('input', {
-    id, class: 'form-control', type: 'number', value: Number.isFinite(value) ? String(value) : '', inputmode: opts.step ? 'decimal' : 'numeric',
+    id, class: 'form-control', type: 'number', value: shown(value), inputmode: opts.step ? 'decimal' : 'numeric',
     min: opts.min !== undefined ? String(opts.min) : undefined, max: opts.max !== undefined ? String(opts.max) : undefined, step: opts.step ?? '1',
   });
-  input.addEventListener('input', () => onChange(input.value.trim() === '' ? Number.NaN : Number(input.value)));
+  const parse = (): number => (input.value.trim() === '' ? Number.NaN : Number(input.value));
+  input.addEventListener('input', () => onChange(parse()));
+  if (opts.format) {
+    input.addEventListener('blur', () => {
+      const formatted = shown(parse());
+      if (formatted && formatted !== input.value) {
+        input.value = formatted;
+      }
+    });
+  }
   return wrapField(id, label, input, opts);
 }
 
@@ -202,6 +214,23 @@ export function statusBox(kind: 'danger' | 'warning' | 'info', message: string):
   return el('div', { class: `status-box alert alert-${kind} py-2 px-3 mb-3`, role: 'status' }, message);
 }
 
+/**
+ * Brings a control that just opened into view. The page sits in an iframe the host sizes to the content, so a
+ * `scrollIntoView` here scrolls the host's modal (same-origin). The host learns the new height a moment after the
+ * page grows (its ResizeObserver posts it to the parent), so the call is made now and once more after that.
+ */
+export function reveal(node: HTMLElement): void {
+  const scroll = (): void => {
+    try {
+      node.scrollIntoView({ block: 'center' });
+    } catch {
+      // An old browser without the options form: leave the page where it is.
+    }
+  };
+  scroll();
+  window.setTimeout(scroll, 250);
+}
+
 export interface InlineConfirmOptions {
   /** The button that opens the confirmation; it is put back when the confirmation closes. */
   start: HTMLElement;
@@ -211,6 +240,8 @@ export interface InlineConfirmOptions {
   cancelLabel: string;
   onConfirm: () => void;
   onOpen?: (open: boolean) => void;
+  /** Draw the question already open (the page keeps it as state across a redraw); focus is left alone. */
+  open?: boolean;
   cls?: string;
 }
 
@@ -233,7 +264,7 @@ export function inlineConfirm(opts: InlineConfirmOptions): HTMLElement {
       reset();
     }
   };
-  opts.start.addEventListener('click', () => {
+  const show = (clicked: boolean): void => {
     clear(control);
     control.appendChild(el('span', { class: 'small ns-confirm-question' }, opts.question));
     const confirm = button(opts.confirmLabel, () => {
@@ -243,26 +274,38 @@ export function inlineConfirm(opts: InlineConfirmOptions): HTMLElement {
     control.appendChild(confirm);
     control.appendChild(linkButton(opts.cancelLabel, reset));
     document.addEventListener('keydown', onKey);
-    opts.onOpen?.(true);
-    confirm.focus();
-  });
-  control.appendChild(opts.start);
+    if (clicked) {
+      opts.onOpen?.(true);
+      confirm.focus();
+      reveal(control);
+    }
+  };
+  opts.start.addEventListener('click', () => show(true));
+  if (opts.open) {
+    show(false);
+  } else {
+    control.appendChild(opts.start);
+  }
   return control;
 }
 
-export interface ModalHandle {
+export interface InlineDialogHandle {
   el: HTMLElement;
   close(): void;
 }
 
-/** A full-page modal over the settings page (the Reset dialog), closed by its Close button, the backdrop, or Escape. */
-export function openModal(opts: { title: string; body: Node; actions?: Node[] }): ModalHandle {
-  const backdrop = el('div', { class: 'ns-modal-backdrop', role: 'presentation' });
-  const dialog = el('div', { class: 'ns-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': opts.title });
+/**
+ * A dialog in the page flow (the Reset dialog), drawn where it is opened rather than over the page: a fixed
+ * overlay would pin to the iframe's own top, off-screen when the opener sits at the bottom of a scrolled host
+ * modal. Escape closes it; `onClose` runs on every close, including the caller's.
+ */
+export function inlineDialog(opts: { title: string; body: Node; actions: Node[]; onClose?: () => void }): InlineDialogHandle {
+  const dialog = el('div', { class: 'ns-inline-dialog', role: 'dialog', 'aria-label': opts.title });
   let onKey: (event: KeyboardEvent) => void = () => undefined;
   const close = (): void => {
     document.removeEventListener('keydown', onKey);
-    backdrop.remove();
+    dialog.remove();
+    opts.onClose?.();
   };
   onKey = (event: KeyboardEvent): void => {
     if (event.key === 'Escape') {
@@ -271,19 +314,8 @@ export function openModal(opts: { title: string; body: Node; actions?: Node[] })
     }
   };
   document.addEventListener('keydown', onKey);
-  backdrop.addEventListener('click', (event) => {
-    if (event.target === backdrop) {
-      close();
-    }
-  });
-  const closeButton = el('button', { type: 'button', class: 'btn-close', 'aria-label': 'Close' });
-  closeButton.addEventListener('click', close);
-  dialog.appendChild(el('div', { class: 'ns-modal-header' }, el('div', { class: 'fw-semibold' }, opts.title), closeButton));
-  dialog.appendChild(el('div', { class: 'ns-modal-body' }, opts.body));
-  if (opts.actions && opts.actions.length > 0) {
-    dialog.appendChild(el('div', { class: 'ns-modal-actions' }, ...opts.actions));
-  }
-  backdrop.appendChild(dialog);
-  document.body.appendChild(backdrop);
+  dialog.appendChild(el('div', { class: 'ns-inline-dialog-title fw-semibold' }, opts.title));
+  dialog.appendChild(el('div', { class: 'ns-inline-dialog-body' }, opts.body));
+  dialog.appendChild(el('div', { class: 'ns-inline-dialog-actions' }, ...opts.actions));
   return { el: dialog, close };
 }

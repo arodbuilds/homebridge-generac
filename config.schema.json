@@ -2,7 +2,7 @@
   "pluginAlias": "Generac",
   "pluginType": "platform",
   "singular": true,
-  "headerDisplay": "Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor and a starting battery reading. Propane models will also get a tank level later.",
+  "headerDisplay": "Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor and a starting battery reading. Propane models will also get a tank level later. Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobile Link are its trademarks. Uses Generac's undocumented Mobile Link API, which can change without notice.",
   "schema": {
     "type": "object",
     "required": [

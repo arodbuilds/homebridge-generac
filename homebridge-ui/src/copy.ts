@@ -24,7 +24,8 @@ export const INTRO = {
   generatorsEmpty: 'No generators yet. Connect your Mobile Link account above and they appear here within a minute.',
   settingsHeading: 'Settings',
   closing: 'Your generators appear in the Home app as sensors. Add them to automations; for example, turn on a light when Running opens.',
-  affiliation: 'Not affiliated with Generac. Generac and Mobile Link are trademarks of Generac Power Systems, Inc.',
+  affiliation: 'Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobile Link are its trademarks. '
+    + 'Uses Generac\'s undocumented Mobile Link API, which can change without notice.',
 };
 
 /** SPEC 11.3 B. */
@@ -33,6 +34,8 @@ export const ACCOUNT = {
   notConnectedBody: 'Sign in once with your Mobile Link email and password. Your password is used to sign in and is not stored.',
   connect: 'Connect',
   checking: 'Checking',
+  checkingBody: 'Signed in. Homebridge picks up the new sign-in within a minute.',
+  checkingSlow: 'Homebridge hasn\'t picked it up yet. Restart Homebridge from Power Options.',
   connected: 'Connected',
   lastChecked: (relative: string): string => `Last checked ${relative}`,
   disconnect: 'Disconnect',
@@ -114,6 +117,7 @@ export const SETTINGS = {
   pollActiveError: 'Minimum is 60 seconds.',
   batteryLow: 'Low battery threshold (volts)',
   batteryLowHelp: 'A healthy starting battery on charge reads 13.4 to 13.8 V.',
+  batteryLowError: 'Enter volts with one decimal place, for example 12.0.',
   faultOnStopped: 'Treat Stopped as a fault',
   faultOnStoppedHelp: 'Stopped means the control switch is in OFF and the generator won\'t start during an outage.',
   faultOnDisconnected: 'Treat a lost connection as a fault',
@@ -147,6 +151,7 @@ export const SHELL = {
   resetTitle: 'Reset plugin to fresh install?',
   resetPrompt: 'Type RESET to confirm.',
   resetConfirm: 'Confirm',
+  resetCancel: 'Cancel',
   resetDone: 'Signed out and reset. Click Save, then restart Homebridge.',
   show: 'Show',
   hide: 'Hide',

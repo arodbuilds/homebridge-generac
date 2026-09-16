@@ -53,11 +53,19 @@ export type ConnectFlow =
   | { step: 'code'; method: 'sms' | 'otp' | 'email'; email: string; code: string; error: 'wrong_code' | 'too_many' | 'expired' | null; busy: boolean }
   | { step: 'unsupported' };
 
-/** Editors open on the page; a section with one open is not redrawn by the status poll. */
+/**
+ * What the page draws beyond config and /status. The account card is redrawn from every /status response
+ * unless the Connect flow is in progress; the Disconnect question lives here so a redraw keeps it open. The
+ * generator cards are not redrawn while a Rename editor is open.
+ */
 export interface UiState {
   flow: ConnectFlow | null;
   disconnectOpen: boolean;
+  /** The Reset dialog is open under the Reset link. */
+  resetOpen: boolean;
   rename: { id: number; value: string } | null;
+  /** When the Checking state began (the code step succeeded, or the page first saw it), for the card's second line. */
+  checkingSince: number | null;
 }
 
 /** What a section needs from the page. */

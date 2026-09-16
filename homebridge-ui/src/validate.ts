@@ -13,6 +13,11 @@ export interface UiIssue {
 
 export const HHMM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 
+/** True for a finite number with at most one decimal place (12, 12.0 and 11.8; not 12.05). */
+export function hasOneDecimal(value: number): boolean {
+  return Number.isFinite(value) && Math.round(value * 10) / 10 === value;
+}
+
 export function validate(config: UiConfig): UiIssue[] {
   const issues: UiIssue[] = [];
   if (!config.name.trim()) {
@@ -30,6 +35,8 @@ export function validate(config: UiConfig): UiIssue[] {
   }
   if (!Number.isFinite(config.batteryLowVoltage)) {
     issues.push({ path: 'batteryLowVoltage', message: SHELL.required(SETTINGS.batteryLow) });
+  } else if (!hasOneDecimal(config.batteryLowVoltage)) {
+    issues.push({ path: 'batteryLowVoltage', message: SETTINGS.batteryLowError });
   }
   if (config.exerciseTime.trim() && !HHMM_PATTERN.test(config.exerciseTime.trim())) {
     issues.push({ path: 'exerciseTime', message: SETTINGS.exerciseTimeError });

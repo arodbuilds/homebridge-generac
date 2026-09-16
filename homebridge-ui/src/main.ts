@@ -34,9 +34,9 @@ export function isTouchDevice(): boolean {
   }
 }
 
-class Page implements App {
+export class Page implements App {
   status: StatusData | null = null;
-  readonly ui: UiState = { flow: null, disconnectOpen: false, rename: null };
+  readonly ui: UiState = { flow: null, disconnectOpen: false, resetOpen: false, rename: null, checkingSince: null };
   private readonly containers = new Map<Section, HTMLElement>();
   private readonly footer: FooterHandle;
   private readonly touched = new Set<string>();
@@ -55,6 +55,7 @@ class Page implements App {
     }));
     root.appendChild(el('p', { class: 'lead-copy' }, INTRO.one));
     root.appendChild(el('p', { class: 'lead-copy' }, INTRO.two));
+    root.appendChild(el('p', { class: 'form-text gn-affiliation' }, INTRO.affiliation));
     for (const section of SECTIONS) {
       const container = el('div', { class: 'section-body' });
       this.containers.set(section.key, container);
@@ -67,7 +68,6 @@ class Page implements App {
     root.appendChild(el('p', { class: 'lead-copy mt-3' }, INTRO.closing));
     this.footer = renderFooter();
     root.appendChild(this.footer.el);
-    root.appendChild(el('p', { class: 'form-text gn-affiliation' }, INTRO.affiliation));
 
     // Validation on blur: leaving a control touches its field; typing alone does not. Typing does clear a message
     // the moment the field is fixed, so nothing under the field moves when it is left (a button below it would
@@ -141,7 +141,10 @@ class Page implements App {
     return validate(this.config);
   }
 
-  /** Asks the server for /status and redraws the account and generator cards, unless an editor is open in them. */
+  /**
+   * Asks the server for /status and redraws the account card from the answer (unless the Connect flow is in
+   * progress) and the generator cards (unless a Rename editor is open).
+   */
   async refreshStatus(): Promise<void> {
     const status = await callServer<StatusData>('/status');
     if (!status || !status.account) {
@@ -150,7 +153,12 @@ class Page implements App {
     this.status = status;
     this.footer.setVersion(status.version);
     this.prefillExerciseTime();
-    if (!this.ui.flow && !this.ui.disconnectOpen) {
+    if (status.account.state === 'checking') {
+      this.ui.checkingSince ??= Date.now();
+    } else {
+      this.ui.checkingSince = null;
+    }
+    if (!this.ui.flow) {
       this.rerender('account');
     }
     if (!this.ui.rename) {

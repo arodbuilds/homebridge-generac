@@ -49,6 +49,16 @@ describe('settings page: platform block (SPEC section 9)', () => {
 });
 
 describe('settings page: validation (SPEC section 11.3 E)', () => {
+  it('the low battery threshold takes one decimal place: 12, 12.0 and 11.8 pass, 12.05 is rejected', () => {
+    for (const ok of [12, 12.0, 11.8, 13.6]) {
+      assert.deepEqual(validate({ ...emptyConfig(), batteryLowVoltage: ok }), [], `${ok} passes`);
+    }
+    assert.deepEqual(validate({ ...emptyConfig(), batteryLowVoltage: 12.05 }),
+      [{ path: 'batteryLowVoltage', message: 'Enter volts with one decimal place, for example 12.0.' }]);
+    assert.equal(formatVolts(12), '12.0');
+    assert.equal(formatVolts(11.8), '11.8');
+  });
+
   it('passes the defaults and reports each rule with its message', () => {
     assert.deepEqual(validate(emptyConfig()), []);
     const c = {
