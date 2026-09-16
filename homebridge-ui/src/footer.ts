@@ -3,8 +3,8 @@ import { el } from './dom.js';
 import { renderMark } from './mark.js';
 
 /**
- * Version and credit footer (SPEC section 11.1, item 6): the last element on the page but the affiliation line,
- * one line of secondary text. The version arrives with /status. Both links open in a new tab; the site link
+ * Version and credit footer (SPEC section 11.1, item 6): the last element on the page, one line of secondary
+ * text. The version arrives with /status. Both links open in a new tab; the site link
  * carries `?ref=generac` and nothing else is tracked.
  */
 

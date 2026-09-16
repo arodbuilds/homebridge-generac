@@ -24,7 +24,8 @@ export const INTRO = {
   generatorsEmpty: 'No generators yet. Connect your Mobile Link account above and they appear here within a minute.',
   settingsHeading: 'Settings',
   closing: 'Your generators appear in the Home app as sensors. Add them to automations; for example, turn on a light when Running opens.',
-  affiliation: 'Not affiliated with Generac. Generac and Mobile Link are trademarks of Generac Power Systems, Inc.',
+  affiliation: 'Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobile Link are its trademarks. '
+    + 'Uses Generac\'s undocumented Mobile Link API, which can change without notice.',
 };
 
 /** SPEC 11.3 B. */

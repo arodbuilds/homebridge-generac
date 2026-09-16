@@ -1,5 +1,5 @@
-/* What this page adds to the shell: the account and generator cards (SPEC section 11.3 B to D) and the affiliation
-   line. Every colour is a host variable with the host's light value as the fallback; the dark values are re-declared
+/* What this page adds to the shell: the affiliation line under the intro (SPEC section 11.1, item 2a) and the account
+   and generator cards (11.3 B to D). Every colour is a host variable with the host's light value as the fallback; the dark values are re-declared
    in index.css under the host's dark marker. */
 
 .gn-body {
@@ -219,6 +219,8 @@
   margin-bottom: 1rem;
 }
 
+/* The affiliation line: muted, directly under the intro paragraphs, never in the footer. */
 .gn-affiliation {
-  margin-top: 0.5rem;
+  margin: 0 0 0.5rem;
+  color: var(--bs-secondary-color, currentColor);
 }

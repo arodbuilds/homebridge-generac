@@ -51,6 +51,21 @@ describe('UI copy (SPEC section 11.3)', () => {
     }
   });
 
+  it('the affiliation line is the 11.3 A string, repeated after the schema header (SPEC section 11.1, item 2a)', () => {
+    const schema = JSON.parse(fs.readFileSync(path.resolve(fixturesDir, '..', '..', 'config.schema.json'), 'utf8')) as { headerDisplay: string };
+    assert.equal(copy.INTRO.affiliation,
+      'Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobile Link are its trademarks. '
+      + 'Uses Generac\'s undocumented Mobile Link API, which can change without notice.');
+    assert.ok(schema.headerDisplay.endsWith(` ${copy.INTRO.affiliation}`), 'config.schema.json headerDisplay ends with the affiliation line');
+  });
+
+  it('the display name is Generac and the banner title Generac for Homebridge (SPEC section 3)', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.resolve(fixturesDir, '..', '..', 'package.json'), 'utf8')) as { displayName: string };
+    assert.equal(pkg.displayName, 'Generac');
+    assert.equal(copy.BANNER.title, 'Generac for Homebridge');
+    assert.equal(copy.TOAST_TITLE, 'Generac for Homebridge');
+  });
+
   it('the templates match their SPEC rows', () => {
     assert.ok(spec.includes('`Last checked {relative time}`'));
     assert.equal(copy.ACCOUNT.lastChecked('2 minutes ago'), 'Last checked 2 minutes ago');

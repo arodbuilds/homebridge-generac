@@ -55,6 +55,7 @@ class Page implements App {
     }));
     root.appendChild(el('p', { class: 'lead-copy' }, INTRO.one));
     root.appendChild(el('p', { class: 'lead-copy' }, INTRO.two));
+    root.appendChild(el('p', { class: 'form-text gn-affiliation' }, INTRO.affiliation));
     for (const section of SECTIONS) {
       const container = el('div', { class: 'section-body' });
       this.containers.set(section.key, container);
@@ -67,7 +68,6 @@ class Page implements App {
     root.appendChild(el('p', { class: 'lead-copy mt-3' }, INTRO.closing));
     this.footer = renderFooter();
     root.appendChild(this.footer.el);
-    root.appendChild(el('p', { class: 'form-text gn-affiliation' }, INTRO.affiliation));
 
     // Validation on blur: leaving a control touches its field; typing alone does not. Typing does clear a message
     // the moment the field is fixed, so nothing under the field moves when it is left (a button below it would

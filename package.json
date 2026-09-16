@@ -1,6 +1,6 @@
 {
   "name": "homebridge-generac",
-  "displayName": "Generac for Homebridge",
+  "displayName": "Generac",
   "type": "module",
   "version": "0.1.0-beta.1",
   "description": "Generac Mobile Link standby generators in HomeKit: running, fault and maintenance sensors plus starting-battery health.",
