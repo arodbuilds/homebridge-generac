@@ -36,7 +36,7 @@ export function isTouchDevice(): boolean {
 
 export class Page implements App {
   status: StatusData | null = null;
-  readonly ui: UiState = { flow: null, disconnectOpen: false, rename: null, checkingSince: null };
+  readonly ui: UiState = { flow: null, disconnectOpen: false, resetOpen: false, rename: null, checkingSince: null };
   private readonly containers = new Map<Section, HTMLElement>();
   private readonly footer: FooterHandle;
   private readonly touched = new Set<string>();

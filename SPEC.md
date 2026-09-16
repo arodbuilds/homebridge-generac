@@ -214,6 +214,7 @@ Generac additions:
 - The Rename control is the card's footer button and edits in place; Save persists.
 - The account card is redrawn from every `/status` response. The Connect flow replaces the card in place and hands control back to the card renderer when it ends; it never leaves a view of its own behind. The Disconnect question is page state, so a redraw keeps it open.
 - Reset (Settings disclosure) calls `/reset`, then replaces the platform block with the defaults through `updatePluginConfig()`; the host's SAVE persists it and the restart that follows removes the accessories.
+- Dialogs are never fixed-position overlays: the page sits in an iframe the host sizes to its content, so `position: fixed` pins to the iframe's own top and a dialog can land off-screen (Alex's pass, September 15, 2026). The Reset dialog renders inline directly below the Reset link and the Disconnect question inline on its card; after either opens, the page calls `scrollIntoView({ block: 'center' })` on it, which scrolls the host's modal (same-origin iframe).
 
 ### 11.3 Copy (verbatim)
 
@@ -291,7 +292,7 @@ Generac additions:
 
 **F. Shell strings** (the plugin shell's own copy, shared with the author's other plugins)
 - Disclosure summary: `Advanced`
-- Reset: button `Reset plugin to fresh install`, dialog title `Reset plugin to fresh install?`, prompt `Type RESET to confirm.`, button `Confirm`, done toast `Signed out and reset. Click Save, then restart Homebridge.`
+- Reset: button `Reset plugin to fresh install`, dialog title `Reset plugin to fresh install?`, prompt `Type RESET to confirm.`, button `Confirm`, text button `Cancel`, done toast `Signed out and reset. Click Save, then restart Homebridge.`
 - Password field toggle: `Show`, `Hide`
 - Required field: `{Label} is required.`
 - Credit footer: `Made by Alex Rodriguez`, `alex-rodriguez.com`, `Report an issue`

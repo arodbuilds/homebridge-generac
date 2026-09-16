@@ -61,6 +61,8 @@ export type ConnectFlow =
 export interface UiState {
   flow: ConnectFlow | null;
   disconnectOpen: boolean;
+  /** The Reset dialog is open under the Reset link. */
+  resetOpen: boolean;
   rename: { id: number; value: string } | null;
   /** When the Checking state began (the code step succeeded, or the page first saw it), for the card's second line. */
   checkingSince: number | null;

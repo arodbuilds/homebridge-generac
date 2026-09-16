@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import { flush, installFakeDom, text, type, type FakeElement } from './fake-dom.js';
+import { FakeEvent, flush, installFakeDom, text, type, type FakeElement } from './fake-dom.js';
 
 const dom = installFakeDom();
 
@@ -281,4 +281,87 @@ describe('settings page: account card after Connect (SPEC section 11.3 B, defect
   });
 });
 
-export { SHELL };
+function resetLink(root: FakeElement): FakeElement {
+  const link = root.querySelectorAll('#section-settings button').find((b) => text(b) === SHELL.reset);
+  assert.ok(link, 'no Reset link');
+  return link;
+}
+
+describe('settings page: Reset dialog and Disconnect question in the page flow (SPEC section 11.2, defect b of September 15, 2026)', () => {
+  it('renders the Reset dialog inline directly below the Reset link and scrolls the host to it', async () => {
+    statusScript(CONNECTED);
+    const { root, page } = mount();
+    page.startPolling();
+    await flush();
+    assert.equal(root.querySelector('.ns-inline-dialog'), null);
+    resetLink(root).click();
+    const dialog = root.querySelector('.ns-inline-dialog');
+    assert.ok(dialog, 'the dialog is in the page');
+    assert.equal(dialog.parentNode, resetLink(root).parentNode, 'in the Reset link\'s holder');
+    assert.equal(resetLink(root).nextElementSibling, dialog, 'directly below the link');
+    assert.equal(dom.document.body.querySelector('.ns-modal-backdrop'), null, 'no fixed overlay');
+    assert.equal(page.ui.resetOpen, true);
+    assert.equal(text(dialog.querySelector('.ns-inline-dialog-title')), SHELL.resetTitle);
+    assert.deepEqual(dialog.querySelectorAll('li').map((li) => text(li)), SETTINGS.resetLines);
+    assert.deepEqual(buttons(dialog), [SHELL.resetConfirm, SHELL.resetCancel]);
+    await dom.clock.advance(0);
+    assert.equal(dom.document.activeElement, dialog.querySelector('input'), 'the RESET field has focus');
+    assert.deepEqual(dialog.scrolledInto, [{ block: 'center' }], 'scrollIntoView on open');
+    await dom.clock.advance(250);
+    assert.deepEqual(dialog.scrolledInto, [{ block: 'center' }, { block: 'center' }], 'and again once the host has resized the iframe');
+  });
+
+  it('enables Confirm once RESET is typed; Confirm resets the page, Cancel and Escape only close', async () => {
+    statusScript(CONNECTED);
+    const { root, page } = mount({ platform: 'Generac', name: 'Basement', debug: true });
+    page.startPolling();
+    await flush();
+    resetLink(root).click();
+    let dialog = root.querySelector('.ns-inline-dialog')!;
+    const confirm = dialog.querySelectorAll('button').find((b) => text(b) === SHELL.resetConfirm)!;
+    assert.equal(confirm.disabled, true);
+    type(dialog.querySelector('input')!, 'reset');
+    assert.equal(confirm.disabled, true);
+    type(dialog.querySelector('input')!, 'RESET');
+    assert.equal(confirm.disabled, false);
+    dialog.querySelectorAll('button').find((b) => text(b) === SHELL.resetCancel)!.click();
+    assert.equal(root.querySelector('.ns-inline-dialog'), null);
+    assert.equal(page.ui.resetOpen, false);
+
+    resetLink(root).click();
+    assert.ok(root.querySelector('.ns-inline-dialog'));
+    dom.document.dispatchEvent(new FakeEvent('keydown', true, { key: 'Escape' }));
+    assert.equal(root.querySelector('.ns-inline-dialog'), null, 'Escape closes');
+    assert.equal(page.ui.resetOpen, false);
+
+    resetLink(root).click();
+    dialog = root.querySelector('.ns-inline-dialog')!;
+    type(dialog.querySelector('input')!, 'RESET');
+    answers.set('/reset', { ok: true });
+    statusScript(NOT_CONNECTED);
+    dialog.querySelectorAll('button').find((b) => text(b) === SHELL.resetConfirm)!.click();
+    await flush();
+    assert.equal(root.querySelector('.ns-inline-dialog'), null);
+    assert.equal(requests.filter((r) => r.path === '/reset').length, 1);
+    assert.equal(page.config.name, 'Generac');
+    assert.equal(page.config.debug, false);
+    assert.equal(field(root, 'name').value, 'Generac');
+    assert.deepEqual(buttons(accountCard(root)), [ACCOUNT.connect]);
+    assert.deepEqual(toasts, [`success: ${SHELL.resetDone}`]);
+  });
+
+  it('scrolls the host to the Disconnect question when it opens', async () => {
+    statusScript(CONNECTED);
+    const { root, page } = mount();
+    page.startPolling();
+    await flush();
+    accountCard(root).querySelectorAll('button').find((b) => text(b) === ACCOUNT.disconnect)!.click();
+    const control = accountCard(root).querySelector('.ns-inline-confirm')!;
+    assert.ok(text(control).includes(ACCOUNT.disconnectQuestion));
+    assert.deepEqual(control.scrolledInto, [{ block: 'center' }]);
+    await dom.clock.advance(250);
+    assert.deepEqual(control.scrolledInto, [{ block: 'center' }, { block: 'center' }]);
+    await dom.clock.advance(15 * 1000);
+    assert.equal(accountCard(root).querySelector('.ns-inline-confirm')!.scrolledInto.length, 0, 'a redraw from /status does not scroll');
+  });
+});

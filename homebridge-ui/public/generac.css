@@ -219,6 +219,35 @@
   margin-bottom: 1rem;
 }
 
+/* The Reset dialog, in the page flow directly below the Reset link (SPEC section 11.2): a bordered panel in the
+   card's colours, never a fixed overlay. */
+.generac-ui .ns-inline-dialog {
+  margin-top: 0.75rem;
+  max-width: 28rem;
+  border: 1px solid var(--bs-border-color, rgba(128, 128, 128, 0.35));
+  border-radius: 0.5rem;
+  background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, inherit);
+}
+
+.generac-ui .ns-inline-dialog-title {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--bs-border-color, rgba(128, 128, 128, 0.35));
+}
+
+.generac-ui .ns-inline-dialog-body {
+  padding: 1rem;
+}
+
+.generac-ui .ns-inline-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--bs-border-color, rgba(128, 128, 128, 0.35));
+}
+
 /* The affiliation line: muted, directly under the intro paragraphs, never in the footer. */
 .gn-affiliation {
   margin: 0 0 0.5rem;

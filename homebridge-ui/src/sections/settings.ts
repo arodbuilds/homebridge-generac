@@ -6,44 +6,75 @@
 import { callServer, toastSuccess } from '../api.js';
 import type { App } from '../app.js';
 import { SETTINGS, SHELL } from '../copy.js';
-import { button, checkboxField, dangerLinkButton, disclosure, el, grid, gridCell, numberField, openModal, textField } from '../dom.js';
+import {
+  button, checkboxField, dangerLinkButton, disclosure, el, grid, gridCell, inlineDialog, linkButton, numberField, reveal, textField,
+} from '../dom.js';
 import { formatVolts } from '../format.js';
 import { DEFAULTS, emptyConfig } from '../model.js';
 import { hasOneDecimal } from '../validate.js';
 
-/** The Reset dialog: the three lines from SPEC section 11.3 E, "Type RESET to confirm.", Confirm disabled until typed. */
-function resetButton(app: App): HTMLElement {
-  return dangerLinkButton(SHELL.reset, () => {
-    const confirmInput = el('input', { type: 'text', class: 'form-control', autocomplete: 'off', spellcheck: 'false', id: 'gn-reset-confirm' });
-    let closeModal: () => void = () => undefined;
-    const confirm = button(SHELL.resetConfirm, () => {
-      closeModal();
-      // Sign out and forget the saved state on the server; the platform removes the accessories on its next start.
-      void callServer('/reset').then(() => app.refreshStatus());
-      if (app.status) {
-        app.status.account = { state: 'not_connected' };
-      }
-      app.ui.flow = null;
-      app.ui.rename = null;
-      app.replaceConfig(emptyConfig());
-      toastSuccess(SHELL.resetDone);
-    }, 'btn btn-danger btn-sm');
-    confirm.disabled = true;
-    confirmInput.addEventListener('input', () => {
-      confirm.disabled = confirmInput.value.trim() !== 'RESET';
-    });
-    const modal = openModal({
-      title: SHELL.resetTitle,
-      body: el('div', {},
-        el('ul', { class: 'ps-3' }, ...SETTINGS.resetLines.map((line) => el('li', {}, line))),
-        el('label', { class: 'form-label', for: 'gn-reset-confirm' }, SHELL.resetPrompt),
-        confirmInput,
-      ),
-      actions: [confirm],
-    });
-    closeModal = modal.close;
-    confirmInput.focus();
+/**
+ * The Reset dialog: the three lines from SPEC section 11.3 E, "Type RESET to confirm.", Confirm disabled until
+ * typed. It renders inline directly below the Reset link (SPEC section 11.2) and is page state, so a redraw of
+ * the section keeps it open; opening it by click focuses the field and scrolls the host modal to the dialog.
+ */
+function resetDialog(app: App, opened: boolean): HTMLElement {
+  const confirmInput = el('input', { type: 'text', class: 'form-control', autocomplete: 'off', spellcheck: 'false', id: 'gn-reset-confirm' });
+  let close: () => void = () => undefined;
+  const confirm = button(SHELL.resetConfirm, () => {
+    close();
+    // Sign out and forget the saved state on the server; the platform removes the accessories on its next start.
+    void callServer('/reset').then(() => app.refreshStatus());
+    if (app.status) {
+      app.status.account = { state: 'not_connected' };
+    }
+    app.ui.flow = null;
+    app.ui.disconnectOpen = false;
+    app.ui.rename = null;
+    app.replaceConfig(emptyConfig());
+    toastSuccess(SHELL.resetDone);
+  }, 'btn btn-danger btn-sm');
+  confirm.disabled = true;
+  confirmInput.addEventListener('input', () => {
+    confirm.disabled = confirmInput.value.trim() !== 'RESET';
   });
+  const dialog = inlineDialog({
+    title: SHELL.resetTitle,
+    body: el('div', {},
+      el('ul', { class: 'ps-3' }, ...SETTINGS.resetLines.map((line) => el('li', {}, line))),
+      el('label', { class: 'form-label', for: 'gn-reset-confirm' }, SHELL.resetPrompt),
+      confirmInput,
+    ),
+    actions: [confirm, linkButton(SHELL.resetCancel, () => close())],
+    onClose: () => {
+      app.ui.resetOpen = false;
+    },
+  });
+  close = dialog.close;
+  if (opened) {
+    window.setTimeout(() => {
+      confirmInput.focus();
+      reveal(dialog.el);
+    }, 0);
+  }
+  return dialog.el;
+}
+
+/** The Reset link, with the dialog directly below it while open. */
+function resetControl(app: App): HTMLElement {
+  const holder = el('div', { class: 'gn-reset' });
+  const link = dangerLinkButton(SHELL.reset, () => {
+    if (app.ui.resetOpen) {
+      return;
+    }
+    app.ui.resetOpen = true;
+    holder.appendChild(resetDialog(app, true));
+  });
+  holder.appendChild(link);
+  if (app.ui.resetOpen) {
+    holder.appendChild(resetDialog(app, false));
+  }
+  return holder;
 }
 
 export function renderSettings(app: App, container: HTMLElement): void {
@@ -104,5 +135,5 @@ export function renderSettings(app: App, container: HTMLElement): void {
       app.changed();
     }, { path: 'debug', help: SETTINGS.debugHelp })),
   );
-  container.appendChild(disclosure(SHELL.advanced, [fields, el('div', { class: 'gn-reset' }, resetButton(app))], { cls: 'gn-settings' }));
+  container.appendChild(disclosure(SHELL.advanced, [fields, resetControl(app)], { cls: 'gn-settings' }));
 }

@@ -151,6 +151,7 @@ export const SHELL = {
   resetTitle: 'Reset plugin to fresh install?',
   resetPrompt: 'Type RESET to confirm.',
   resetConfirm: 'Confirm',
+  resetCancel: 'Cancel',
   resetDone: 'Signed out and reset. Click Save, then restart Homebridge.',
   show: 'Show',
   hide: 'Hide',
