@@ -7,7 +7,9 @@ import { callServer, toastSuccess } from '../api.js';
 import type { App } from '../app.js';
 import { SETTINGS, SHELL } from '../copy.js';
 import { button, checkboxField, dangerLinkButton, disclosure, el, grid, gridCell, numberField, openModal, textField } from '../dom.js';
+import { formatVolts } from '../format.js';
 import { DEFAULTS, emptyConfig } from '../model.js';
+import { hasOneDecimal } from '../validate.js';
 
 /** The Reset dialog: the three lines from SPEC section 11.3 E, "Type RESET to confirm.", Confirm disabled until typed. */
 function resetButton(app: App): HTMLElement {
@@ -63,7 +65,11 @@ export function renderSettings(app: App, container: HTMLElement): void {
     gridCell(6, numberField(SETTINGS.batteryLow, c.batteryLowVoltage, (v) => {
       c.batteryLowVoltage = v;
       app.changed();
-    }, { path: 'batteryLowVoltage', step: '0.1', help: SETTINGS.batteryLowHelp })),
+    }, {
+      path: 'batteryLowVoltage', step: '0.1', help: SETTINGS.batteryLowHelp,
+      // One decimal place on load and after blur (12.0, 11.8); more than one keeps its text and its message (SPEC section 11.3 E).
+      format: (v) => (hasOneDecimal(v) ? formatVolts(v) : null),
+    })),
     gridCell(6),
     gridCell(12, checkboxField(SETTINGS.faultOnStopped, c.faultOnStopped, (v) => {
       c.faultOnStopped = v;

@@ -62,6 +62,8 @@ export interface FieldOptions {
   max?: number;
   step?: string;
   monospace?: boolean;
+  /** How a number field shows a value on load and after blur; null leaves the typed text alone (an invalid value keeps its message). */
+  format?: (value: number) => string | null;
 }
 
 /** One line of field help. Carries `ns-help` like the shell so a help toggle could collapse it. */
@@ -96,14 +98,24 @@ export function textField(label: string, value: string, onChange: (value: string
   return wrapField(id, label, input, opts);
 }
 
-/** A number input; `onChange` receives the parsed number or NaN. */
+/** A number input; `onChange` receives the parsed number or NaN. With `format`, the value is shown formatted on load and after blur. */
 export function numberField(label: string, value: number, onChange: (value: number) => void, opts: FieldOptions = {}): HTMLElement {
   const id = uniqueId();
+  const shown = (v: number): string => (Number.isFinite(v) ? opts.format?.(v) ?? String(v) : '');
   const input = el('input', {
-    id, class: 'form-control', type: 'number', value: Number.isFinite(value) ? String(value) : '', inputmode: opts.step ? 'decimal' : 'numeric',
+    id, class: 'form-control', type: 'number', value: shown(value), inputmode: opts.step ? 'decimal' : 'numeric',
     min: opts.min !== undefined ? String(opts.min) : undefined, max: opts.max !== undefined ? String(opts.max) : undefined, step: opts.step ?? '1',
   });
-  input.addEventListener('input', () => onChange(input.value.trim() === '' ? Number.NaN : Number(input.value)));
+  const parse = (): number => (input.value.trim() === '' ? Number.NaN : Number(input.value));
+  input.addEventListener('input', () => onChange(parse()));
+  if (opts.format) {
+    input.addEventListener('blur', () => {
+      const formatted = shown(parse());
+      if (formatted && formatted !== input.value) {
+        input.value = formatted;
+      }
+    });
+  }
   return wrapField(id, label, input, opts);
 }
 

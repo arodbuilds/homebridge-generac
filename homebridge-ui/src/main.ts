@@ -34,7 +34,7 @@ export function isTouchDevice(): boolean {
   }
 }
 
-class Page implements App {
+export class Page implements App {
   status: StatusData | null = null;
   readonly ui: UiState = { flow: null, disconnectOpen: false, rename: null };
   private readonly containers = new Map<Section, HTMLElement>();

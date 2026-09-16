@@ -115,6 +115,7 @@ export const SETTINGS = {
   pollActiveError: 'Minimum is 60 seconds.',
   batteryLow: 'Low battery threshold (volts)',
   batteryLowHelp: 'A healthy starting battery on charge reads 13.4 to 13.8 V.',
+  batteryLowError: 'Enter volts with one decimal place, for example 12.0.',
   faultOnStopped: 'Treat Stopped as a fault',
   faultOnStoppedHelp: 'Stopped means the control switch is in OFF and the generator won\'t start during an outage.',
   faultOnDisconnected: 'Treat a lost connection as a fault',

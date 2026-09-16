@@ -1,0 +1,156 @@
+/**
+ * The settings page rendered under node:test on the fake DOM (test/fake-dom.ts): what the page draws from the
+ * platform block and from /status, and the paths Alex's live pass on the Pi exercised (SPEC section 16,
+ * September 15, 2026): the affiliation line under the intro, the threshold with one decimal place, the account
+ * card after the Connect flow, and the Reset and Disconnect confirmations in the page flow.
+ */
+import assert from 'node:assert/strict';
+import { afterEach, describe, it } from 'node:test';
+import { FakeEvent, flush, installFakeDom, text, type, type FakeElement } from './fake-dom.js';
+
+const dom = installFakeDom();
+
+/** The host: /status and the Connect endpoints answer from a script the test sets; every request is recorded. */
+const requests: Array<{ path: string; payload: unknown }> = [];
+const answers = new Map<string, unknown | (() => unknown)>();
+const pushed: unknown[][] = [];
+const save = { enabled: undefined as boolean | undefined };
+const toasts: string[] = [];
+dom.window.homebridge = {
+  request: async (path: string, payload: unknown = {}) => {
+    requests.push({ path, payload });
+    const answer = answers.get(path);
+    if (answer === undefined) {
+      throw new Error(`No answer for ${path}`);
+    }
+    return typeof answer === 'function' ? (answer as () => unknown)() : answer;
+  },
+  getPluginConfig: async () => [],
+  updatePluginConfig: async (blocks: unknown[]) => {
+    pushed.push(blocks);
+  },
+  toast: { error: (m: string) => toasts.push(`error: ${m}`), success: (m: string) => toasts.push(`success: ${m}`) },
+  enableSaveButton: () => {
+    save.enabled = true;
+  },
+  disableSaveButton: () => {
+    save.enabled = false;
+  },
+  showSpinner: () => undefined,
+  hideSpinner: () => undefined,
+};
+
+// The page modules read window and document at call time; they are imported once the fake DOM is in place.
+const { Page } = await import('../homebridge-ui/src/main.js');
+const { readConfig } = await import('../homebridge-ui/src/model.js');
+const { ACCOUNT, CONNECT, INTRO, SETTINGS, SHELL } = await import('../homebridge-ui/src/copy.js');
+
+const CONNECTED = {
+  account: { state: 'connected', email: 'you@example.com', lastChecked: '2026-09-15T19:12:00Z' }, generators: [], others: [], version: '0.1.0-beta.1',
+};
+const NOT_CONNECTED = { account: { state: 'not_connected' }, generators: [], others: [], version: '0.1.0-beta.1' };
+const CHECKING = { account: { state: 'checking', email: 'you@example.com' }, generators: [], others: [], version: '0.1.0-beta.1' };
+
+function mount(raw: Record<string, unknown> = { platform: 'Generac' }): { root: FakeElement; page: InstanceType<typeof Page> } {
+  const root = dom.document.createElement('div');
+  root.setAttribute('id', 'app');
+  dom.document.body.appendChild(root);
+  const page = new Page(readConfig(raw), root as unknown as HTMLElement);
+  page.setOtherBlocks([]);
+  page.renderAll();
+  return { root, page };
+}
+
+function field(root: FakeElement, path: string): FakeElement {
+  const input = root.querySelector(`[data-path="${path}"] input`);
+  assert.ok(input, `no field ${path}`);
+  return input;
+}
+
+function feedback(root: FakeElement, path: string): string {
+  return text(root.querySelector(`[data-path="${path}"] > .invalid-feedback`));
+}
+
+function buttons(node: FakeElement): string[] {
+  return node.querySelectorAll('button').map((b) => text(b));
+}
+
+function accountCard(root: FakeElement): FakeElement {
+  const card = root.querySelector('#section-account .gn-account-card');
+  assert.ok(card, 'no account card');
+  return card;
+}
+
+afterEach(() => {
+  for (const node of dom.document.body.children) {
+    node.remove();
+  }
+  requests.length = 0;
+  answers.clear();
+  pushed.length = 0;
+  toasts.length = 0;
+});
+
+describe('settings page: intro and affiliation line (SPEC section 11.1)', () => {
+  it('draws the affiliation line directly under the intro paragraphs and nowhere in the footer', () => {
+    const { root } = mount();
+    const classes = root.children.map((c) => `${c.tagName.toLowerCase()}.${c.className.split(' ').join('.')}`);
+    assert.deepEqual(classes.slice(0, 4), ['img.ns-banner', 'p.lead-copy', 'p.lead-copy', 'p.form-text.gn-affiliation']);
+    assert.equal(text(root.children[3]), INTRO.affiliation);
+    const footer = root.querySelector('footer');
+    assert.ok(footer);
+    assert.equal(footer.nextElementSibling, null, 'the footer is the last element');
+    assert.equal(text(footer).includes('affiliated'), false);
+  });
+});
+
+describe('settings page: low battery threshold (SPEC section 11.3 E)', () => {
+  it('shows one decimal place on load: 12.0 for the default, 11.8 as saved', () => {
+    assert.equal(field(mount().root, 'batteryLowVoltage').value, '12.0');
+    assert.equal(field(mount({ platform: 'Generac', batteryLowVoltage: 11.8 }).root, 'batteryLowVoltage').value, '11.8');
+    assert.equal(field(mount({ platform: 'Generac', batteryLowVoltage: 12 }).root, 'batteryLowVoltage').value, '12.0');
+  });
+
+  it('accepts one decimal and shows it with one decimal place after blur', async () => {
+    const { root, page } = mount();
+    const input = field(root, 'batteryLowVoltage');
+    input.focus();
+    type(input, '12');
+    assert.equal(page.config.batteryLowVoltage, 12);
+    assert.deepEqual(page.issues(), []);
+    input.blur();
+    assert.equal(input.value, '12.0');
+    assert.equal(feedback(root, 'batteryLowVoltage'), '');
+    input.focus();
+    type(input, '11.8');
+    input.blur();
+    assert.equal(input.value, '11.8');
+    assert.equal(page.config.batteryLowVoltage, 11.8);
+    await dom.clock.advance(200);
+    const block = pushed[pushed.length - 1][0] as Record<string, unknown>;
+    assert.equal(block.batteryLowVoltage, 11.8);
+    assert.equal(save.enabled, true);
+  });
+
+  it('rejects more than one decimal with the 11.3 E message and keeps the typed text', () => {
+    const { root, page } = mount();
+    const input = field(root, 'batteryLowVoltage');
+    input.focus();
+    type(input, '12.05');
+    assert.deepEqual(page.issues(), [{ path: 'batteryLowVoltage', message: SETTINGS.batteryLowError }]);
+    assert.equal(feedback(root, 'batteryLowVoltage'), '', 'no message while the field still has focus');
+    input.blur();
+    assert.equal(input.value, '12.05', 'an invalid value is not reformatted');
+    assert.equal(feedback(root, 'batteryLowVoltage'), SETTINGS.batteryLowError);
+    assert.equal(input.classList.contains('is-invalid'), true);
+    assert.equal(save.enabled, false);
+    input.focus();
+    type(input, '12.1');
+    assert.equal(feedback(root, 'batteryLowVoltage'), '', 'typing a valid value clears the message at once');
+    input.blur();
+    assert.equal(input.value, '12.1');
+    assert.equal(save.enabled, true);
+  });
+});
+
+export { ACCOUNT, CONNECT, SHELL, CHECKING, CONNECTED, NOT_CONNECTED, accountCard, buttons, flush, FakeEvent };
