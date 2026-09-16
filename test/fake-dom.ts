@@ -572,6 +572,11 @@ export class FakeClock {
     this.timers = this.timers.filter((t) => t.id !== id);
   }
 
+  /** Drops every pending timer (a page from an earlier test stops polling). */
+  clearAll(): void {
+    this.timers = [];
+  }
+
   private schedule(fn: () => void, ms: number, every: number | null): number {
     const id = this.next++;
     this.timers.push({ id, due: this.now + Math.max(0, ms), fn, every });

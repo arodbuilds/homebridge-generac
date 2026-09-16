@@ -34,6 +34,8 @@ export const ACCOUNT = {
   notConnectedBody: 'Sign in once with your Mobile Link email and password. Your password is used to sign in and is not stored.',
   connect: 'Connect',
   checking: 'Checking',
+  checkingBody: 'Signed in. Homebridge picks up the new sign-in within a minute.',
+  checkingSlow: 'Homebridge hasn\'t picked it up yet. Restart Homebridge from Power Options.',
   connected: 'Connected',
   lastChecked: (relative: string): string => `Last checked ${relative}`,
   disconnect: 'Disconnect',

@@ -1,7 +1,8 @@
 /**
  * The Mobile Link account card in its four states (SPEC section 11.3 B) and the two-step Connect flow that
- * replaces it in place (11.3 C). The password and the code live in the flow state until the request that
- * carries them returns, and are never written anywhere.
+ * replaces it in place (11.3 C). The card is drawn from /status and the page state on every redraw; the flow
+ * hands control back to it when it ends. The password and the code live in the flow state until the request
+ * that carries them returns, and are never written anywhere.
  */
 
 import { callServer } from '../api.js';
@@ -16,18 +17,37 @@ import { parseDate, relativeTime } from '../format.js';
 type StartResponse = { step: 'code'; method: 'sms' | 'otp' | 'email' } | { step: 'done' } | { error: string };
 type CodeResponse = { step: 'done' } | { error: string };
 
+/** Checking this long after the sign-in, the card adds the restart line (SPEC section 11.3 B). */
+export const CHECKING_HINT_MS = 120 * 1000;
+
 function startFlow(app: App): void {
   app.ui.flow = { step: 'credentials', email: '', password: '', error: null, busy: false };
   app.rerender('account');
 }
 
-function notConnectedCard(app: App, checking: boolean): HTMLElement {
+/** Not connected; before the first /status answer the Connect button waits disabled. */
+function notConnectedCard(app: App, ready: boolean): HTMLElement {
   const connect = primaryButton(ACCOUNT.connect, () => startFlow(app));
-  connect.disabled = checking;
+  connect.disabled = !ready;
   return card({
     title: cardName(ACCOUNT.title),
-    badges: checking ? [badge(ACCOUNT.checking, 'outline')] : [],
     body: [paragraph(ACCOUNT.notConnectedBody, 'gn-body'), el('div', { class: 'gn-actions' }, connect)],
+    cls: 'gn-account-card',
+  });
+}
+
+/** Signed in, and the platform has not polled with the new credentials yet: no button, one line, then the restart line. */
+function checkingCard(app: App, email: string): HTMLElement {
+  const since = app.ui.checkingSince;
+  const slow = since !== null && Date.now() - since >= CHECKING_HINT_MS;
+  return card({
+    title: cardName(ACCOUNT.title),
+    badges: [badge(ACCOUNT.checking, 'outline')],
+    body: [
+      email ? el('div', { class: 'gn-row' }, el('span', { class: 'gn-email' }, email)) : null,
+      paragraph(ACCOUNT.checkingBody, 'gn-body'),
+      slow ? paragraph(ACCOUNT.checkingSlow, 'gn-body') : null,
+    ],
     cls: 'gn-account-card',
   });
 }
@@ -40,6 +60,7 @@ function connectedCard(app: App, email: string, lastChecked: string | undefined)
     confirmLabel: ACCOUNT.disconnect,
     confirmClass: 'btn btn-danger btn-sm',
     cancelLabel: ACCOUNT.keep,
+    open: app.ui.disconnectOpen,
     onOpen: (open) => {
       app.ui.disconnectOpen = open;
     },
@@ -87,9 +108,13 @@ function endFlow(app: App): void {
   app.rerender('account');
 }
 
-/** The sign-in finished: the platform picks the credentials up within a minute, so the card reads Checking until then. */
+/**
+ * The sign-in finished: the flow ends and the card renderer takes over. The platform picks the credentials up
+ * within a minute, so the card reads Checking until /status says otherwise; every /status answer redraws it.
+ */
 function finishFlow(app: App, email: string): void {
   app.ui.flow = null;
+  app.ui.checkingSince = Date.now();
   if (app.status) {
     app.status.account = { state: 'checking', email };
   }
@@ -251,7 +276,11 @@ export function renderAccount(app: App, container: HTMLElement): void {
     container.appendChild(renderFlow(app, app.ui.flow));
     return;
   }
-  const account = app.status?.account ?? { state: 'checking' as const };
+  const account = app.status?.account;
+  if (!account) {
+    container.appendChild(notConnectedCard(app, false));
+    return;
+  }
   switch (account.state) {
   case 'connected':
     container.appendChild(connectedCard(app, account.email ?? '', account.lastChecked));
@@ -260,9 +289,9 @@ export function renderAccount(app: App, container: HTMLElement): void {
     container.appendChild(reconnectCard(app, account.email ?? ''));
     break;
   case 'checking':
-    container.appendChild(notConnectedCard(app, true));
+    container.appendChild(checkingCard(app, account.email ?? ''));
     break;
   default:
-    container.appendChild(notConnectedCard(app, false));
+    container.appendChild(notConnectedCard(app, true));
   }
 }

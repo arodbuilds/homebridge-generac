@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
-import { FakeEvent, flush, installFakeDom, text, type, type FakeElement } from './fake-dom.js';
+import { flush, installFakeDom, text, type, type FakeElement } from './fake-dom.js';
 
 const dom = installFakeDom();
 
@@ -23,7 +23,8 @@ dom.window.homebridge = {
     if (answer === undefined) {
       throw new Error(`No answer for ${path}`);
     }
-    return typeof answer === 'function' ? (answer as () => unknown)() : answer;
+    // A copy, as postMessage would hand the page: the page edits its status object after Connect, Disconnect and Reset.
+    return structuredClone(typeof answer === 'function' ? (answer as () => unknown)() : answer);
   },
   getPluginConfig: async () => [],
   updatePluginConfig: async (blocks: unknown[]) => {
@@ -82,6 +83,7 @@ function accountCard(root: FakeElement): FakeElement {
 }
 
 afterEach(() => {
+  dom.clock.clearAll();
   for (const node of dom.document.body.children) {
     node.remove();
   }
@@ -153,4 +155,130 @@ describe('settings page: low battery threshold (SPEC section 11.3 E)', () => {
   });
 });
 
-export { ACCOUNT, CONNECT, SHELL, CHECKING, CONNECTED, NOT_CONNECTED, accountCard, buttons, flush, FakeEvent };
+/** A scripted /status: each poll takes the next answer; the last one repeats. */
+function statusScript(...sequence: unknown[]): unknown[] {
+  const queue = [...sequence];
+  answers.set('/status', () => (queue.length > 1 ? queue.shift() : queue[0]));
+  return queue;
+}
+
+/** Mounts the page against a not-connected account, runs the Connect flow through the SMS code step, and returns the page. */
+async function connectThroughCode(): Promise<{ root: FakeElement; page: InstanceType<typeof Page> }> {
+  const { root, page } = mount();
+  page.startPolling();
+  await flush();
+  assert.deepEqual(buttons(accountCard(root)), [ACCOUNT.connect]);
+  accountCard(root).querySelector('button')!.click();
+  type(field(root, 'connect.email'), 'you@example.com');
+  type(field(root, 'connect.password'), 'hunter2');
+  answers.set('/connect/start', { step: 'code', method: 'sms' });
+  accountCard(root).querySelectorAll('button').find((b) => text(b) === CONNECT.signIn)!.click();
+  await flush();
+  assert.equal(text(accountCard(root).querySelector('.ns-card-name')), CONNECT.codeTitle);
+  assert.ok(text(accountCard(root)).includes(CONNECT.codeBodySms));
+  type(field(root, 'connect.code'), '123456');
+  answers.set('/connect/code', { step: 'done' });
+  accountCard(root).querySelectorAll('button').find((b) => text(b) === CONNECT.continue)!.click();
+  await flush();
+  return { root, page };
+}
+
+describe('settings page: account card after Connect (SPEC section 11.3 B, defect a of September 15, 2026)', () => {
+  it('reads Checking with the signed-in line and no button after the code step, then Connected from /status within 60 s', async () => {
+    statusScript(NOT_CONNECTED, CHECKING, CHECKING, CONNECTED);
+    const { root, page } = await connectThroughCode();
+    let card = accountCard(root);
+    assert.equal(text(card.querySelector('.badge')), ACCOUNT.checking);
+    assert.ok(text(card).includes(ACCOUNT.checkingBody));
+    assert.equal(text(card).includes(ACCOUNT.notConnectedBody), false, 'the Not connected body is gone');
+    assert.equal(text(card).includes(ACCOUNT.checkingSlow), false);
+    assert.deepEqual(buttons(card), [], 'no Connect button while Checking');
+    assert.equal(page.ui.flow, null, 'the flow handed control back');
+    assert.equal(requests.filter((r) => r.path === '/connect/cancel').length, 0);
+
+    await dom.clock.advance(15 * 1000);
+    card = accountCard(root);
+    assert.equal(text(card.querySelector('.badge')), ACCOUNT.checking);
+    assert.deepEqual(buttons(card), []);
+
+    await dom.clock.advance(45 * 1000);
+    card = accountCard(root);
+    assert.equal(text(card.querySelector('.badge')), ACCOUNT.connected);
+    assert.equal(text(card.querySelector('.gn-email')), 'you@example.com');
+    assert.deepEqual(buttons(card), [ACCOUNT.disconnect]);
+    assert.equal(page.ui.checkingSince, null);
+  });
+
+  it('adds the restart line when /status still reports checking 120 s after the code step, and nothing else', async () => {
+    statusScript(NOT_CONNECTED, CHECKING);
+    const { root } = await connectThroughCode();
+    await dom.clock.advance(105 * 1000);
+    let card = accountCard(root);
+    assert.equal(text(card).includes(ACCOUNT.checkingSlow), false, 'not yet at 105 s');
+    await dom.clock.advance(30 * 1000);
+    card = accountCard(root);
+    assert.equal(text(card.querySelector('.badge')), ACCOUNT.checking);
+    assert.ok(text(card).includes(ACCOUNT.checkingBody));
+    assert.ok(text(card).includes(ACCOUNT.checkingSlow), 'the restart line at 120 s and after');
+    assert.deepEqual(buttons(card), []);
+    assert.deepEqual(card.querySelectorAll('.gn-body').map((p) => text(p)), [ACCOUNT.checkingBody, ACCOUNT.checkingSlow]);
+
+    statusScript(CONNECTED);
+    await dom.clock.advance(15 * 1000);
+    card = accountCard(root);
+    assert.equal(text(card.querySelector('.badge')), ACCOUNT.connected);
+    assert.equal(text(card).includes(ACCOUNT.checkingSlow), false);
+  });
+
+  it('keeps the Connect flow in place across a poll, and leaves no local view behind on Cancel', async () => {
+    statusScript(NOT_CONNECTED);
+    const { root, page } = mount();
+    page.startPolling();
+    await flush();
+    accountCard(root).querySelector('button')!.click();
+    type(field(root, 'connect.email'), 'you@example.com');
+    await dom.clock.advance(15 * 1000);
+    assert.equal(field(root, 'connect.email').value, 'you@example.com', 'the flow is not redrawn by the poll');
+    answers.set('/connect/cancel', { ok: true });
+    accountCard(root).querySelectorAll('button').find((b) => text(b) === CONNECT.cancel)!.click();
+    await flush();
+    assert.deepEqual(buttons(accountCard(root)), [ACCOUNT.connect]);
+    statusScript(CONNECTED);
+    await dom.clock.advance(15 * 1000);
+    assert.equal(text(accountCard(root).querySelector('.badge')), ACCOUNT.connected);
+  });
+
+  it('redraws the Connected card from every /status answer, keeping the Disconnect question open as page state', async () => {
+    statusScript(CONNECTED);
+    const { root, page } = mount();
+    page.startPolling();
+    await flush();
+    accountCard(root).querySelectorAll('button').find((b) => text(b) === ACCOUNT.disconnect)!.click();
+    assert.equal(page.ui.disconnectOpen, true);
+    assert.deepEqual(buttons(accountCard(root)), [ACCOUNT.disconnect, ACCOUNT.keep]);
+    statusScript({ ...CONNECTED, account: { ...CONNECTED.account, email: 'other@example.com' } });
+    await dom.clock.advance(15 * 1000);
+    let card = accountCard(root);
+    assert.equal(text(card.querySelector('.gn-email')), 'other@example.com', 'the card is redrawn from /status');
+    assert.ok(text(card).includes(ACCOUNT.disconnectQuestion), 'the question survives the redraw');
+    card.querySelectorAll('button').find((b) => text(b) === ACCOUNT.keep)!.click();
+    assert.equal(page.ui.disconnectOpen, false);
+    assert.deepEqual(buttons(accountCard(root)), [ACCOUNT.disconnect]);
+    await dom.clock.advance(15 * 1000);
+    card = accountCard(root);
+    assert.deepEqual(buttons(card), [ACCOUNT.disconnect], 'closed stays closed after the next poll');
+  });
+
+  it('draws the Checking card on load and adds the restart line 120 s after first seeing it', async () => {
+    statusScript(CHECKING);
+    const { root, page } = mount();
+    page.startPolling();
+    await flush();
+    assert.equal(text(accountCard(root).querySelector('.badge')), ACCOUNT.checking);
+    assert.deepEqual(buttons(accountCard(root)), []);
+    await dom.clock.advance(120 * 1000);
+    assert.ok(text(accountCard(root)).includes(ACCOUNT.checkingSlow));
+  });
+});
+
+export { SHELL };

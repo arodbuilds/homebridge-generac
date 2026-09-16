@@ -36,7 +36,7 @@ export function isTouchDevice(): boolean {
 
 export class Page implements App {
   status: StatusData | null = null;
-  readonly ui: UiState = { flow: null, disconnectOpen: false, rename: null };
+  readonly ui: UiState = { flow: null, disconnectOpen: false, rename: null, checkingSince: null };
   private readonly containers = new Map<Section, HTMLElement>();
   private readonly footer: FooterHandle;
   private readonly touched = new Set<string>();
@@ -141,7 +141,10 @@ export class Page implements App {
     return validate(this.config);
   }
 
-  /** Asks the server for /status and redraws the account and generator cards, unless an editor is open in them. */
+  /**
+   * Asks the server for /status and redraws the account card from the answer (unless the Connect flow is in
+   * progress) and the generator cards (unless a Rename editor is open).
+   */
   async refreshStatus(): Promise<void> {
     const status = await callServer<StatusData>('/status');
     if (!status || !status.account) {
@@ -150,7 +153,12 @@ export class Page implements App {
     this.status = status;
     this.footer.setVersion(status.version);
     this.prefillExerciseTime();
-    if (!this.ui.flow && !this.ui.disconnectOpen) {
+    if (status.account.state === 'checking') {
+      this.ui.checkingSince ??= Date.now();
+    } else {
+      this.ui.checkingSince = null;
+    }
+    if (!this.ui.flow) {
       this.rerender('account');
     }
     if (!this.ui.rename) {

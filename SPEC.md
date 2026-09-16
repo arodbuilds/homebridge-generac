@@ -212,6 +212,7 @@ Generac additions:
 - Status badges on the generator card use the host's success (Ready), info (Running, Exercising), danger (Fault) and secondary (Not responding) subtle variables.
 - `crypto.randomUUID` is unavailable over plain http in the host; do not use it in the UI (Peloton build 3 finding).
 - The Rename control is the card's footer button and edits in place; Save persists.
+- The account card is redrawn from every `/status` response. The Connect flow replaces the card in place and hands control back to the card renderer when it ends; it never leaves a view of its own behind. The Disconnect question is page state, so a redraw keeps it open.
 - Reset (Settings disclosure) calls `/reset`, then replaces the platform block with the defaults through `updatePluginConfig()`; the host's SAVE persists it and the restart that follows removes the accessories.
 
 ### 11.3 Copy (verbatim)
@@ -234,7 +235,9 @@ Generac additions:
 - Card title: `Mobile Link account`
 - Not connected body: `Sign in once with your Mobile Link email and password. Your password is used to sign in and is not stored.`
 - Not connected button: `Connect`
-- Checking badge: `Checking` (buttons disabled)
+- Checking badge: `Checking`. No Connect button.
+- Checking body: `Signed in. Homebridge picks up the new sign-in within a minute.`
+- Checking slow line, added with no other change when `/status` still reports `checking` 120 seconds after the code step (or after the page first saw the Checking state): `Homebridge hasn't picked it up yet. Restart Homebridge from Power Options.`
 - Connected badge: `Connected`
 - Connected meta: `Last checked {relative time}`
 - Disconnect link: `Disconnect`

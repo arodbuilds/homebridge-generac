@@ -223,6 +223,8 @@ export interface InlineConfirmOptions {
   cancelLabel: string;
   onConfirm: () => void;
   onOpen?: (open: boolean) => void;
+  /** Draw the question already open (the page keeps it as state across a redraw); focus is left alone. */
+  open?: boolean;
   cls?: string;
 }
 
@@ -245,7 +247,7 @@ export function inlineConfirm(opts: InlineConfirmOptions): HTMLElement {
       reset();
     }
   };
-  opts.start.addEventListener('click', () => {
+  const show = (clicked: boolean): void => {
     clear(control);
     control.appendChild(el('span', { class: 'small ns-confirm-question' }, opts.question));
     const confirm = button(opts.confirmLabel, () => {
@@ -255,10 +257,17 @@ export function inlineConfirm(opts: InlineConfirmOptions): HTMLElement {
     control.appendChild(confirm);
     control.appendChild(linkButton(opts.cancelLabel, reset));
     document.addEventListener('keydown', onKey);
-    opts.onOpen?.(true);
-    confirm.focus();
-  });
-  control.appendChild(opts.start);
+    if (clicked) {
+      opts.onOpen?.(true);
+      confirm.focus();
+    }
+  };
+  opts.start.addEventListener('click', () => show(true));
+  if (opts.open) {
+    show(false);
+  } else {
+    control.appendChild(opts.start);
+  }
   return control;
 }
 
