@@ -315,7 +315,7 @@ describe('settings page: Reset dialog and Disconnect question in the page flow (
     assert.deepEqual(dialog.scrolledInto, [{ block: 'center' }, { block: 'center' }], 'and again once the host has resized the iframe');
   });
 
-  it('enables Confirm once RESET is typed; Confirm resets the page, Cancel and Escape only close', async () => {
+  it('enables Confirm once RESET is typed in any case; Confirm resets the page, Cancel and Escape only close', async () => {
     statusScript(CONNECTED);
     const { root, page } = mount({ platform: 'Generac', name: 'Basement', debug: true });
     page.startPolling();
@@ -324,10 +324,17 @@ describe('settings page: Reset dialog and Disconnect question in the page flow (
     let dialog = root.querySelector('.ns-inline-dialog')!;
     const confirm = dialog.querySelectorAll('button').find((b) => text(b) === SHELL.resetConfirm)!;
     assert.equal(confirm.disabled, true);
+    type(dialog.querySelector('input')!, 'RESE');
+    assert.equal(confirm.disabled, true);
     type(dialog.querySelector('input')!, 'reset');
+    assert.equal(confirm.disabled, false, 'lower case is accepted');
+    type(dialog.querySelector('input')!, 'Reset');
+    assert.equal(confirm.disabled, false, 'mixed case is accepted');
+    type(dialog.querySelector('input')!, 'resets');
     assert.equal(confirm.disabled, true);
     type(dialog.querySelector('input')!, 'RESET');
     assert.equal(confirm.disabled, false);
+    assert.equal(text(dialog.querySelector('label')), 'Type RESET to confirm.', 'the prompt is unchanged');
     dialog.querySelectorAll('button').find((b) => text(b) === SHELL.resetCancel)!.click();
     assert.equal(root.querySelector('.ns-inline-dialog'), null);
     assert.equal(page.ui.resetOpen, false);
@@ -340,7 +347,7 @@ describe('settings page: Reset dialog and Disconnect question in the page flow (
 
     resetLink(root).click();
     dialog = root.querySelector('.ns-inline-dialog')!;
-    type(dialog.querySelector('input')!, 'RESET');
+    type(dialog.querySelector('input')!, 'reset');
     answers.set('/reset', { ok: true });
     statusScript(NOT_CONNECTED);
     dialog.querySelectorAll('button').find((b) => text(b) === SHELL.resetConfirm)!.click();

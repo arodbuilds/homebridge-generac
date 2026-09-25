@@ -15,7 +15,7 @@ import { hasOneDecimal } from '../validate.js';
 
 /**
  * The Reset dialog: the three lines from SPEC section 11.3 E, "Type RESET to confirm.", Confirm disabled until
- * typed. It renders inline directly below the Reset link (SPEC section 11.2) and is page state, so a redraw of
+ * RESET is typed in any case. It renders inline directly below the Reset link (SPEC section 11.2) and is page state, so a redraw of
  * the section keeps it open; opening it by click focuses the field and scrolls the host modal to the dialog.
  */
 function resetDialog(app: App, opened: boolean): HTMLElement {
@@ -36,7 +36,8 @@ function resetDialog(app: App, opened: boolean): HTMLElement {
   }, 'btn btn-danger btn-sm');
   confirm.disabled = true;
   confirmInput.addEventListener('input', () => {
-    confirm.disabled = confirmInput.value.trim() !== 'RESET';
+    // RESET in any case (SPEC section 11.3 E); the prompt still reads "Type RESET to confirm."
+    confirm.disabled = confirmInput.value.trim().toUpperCase() !== 'RESET';
   });
   const dialog = inlineDialog({
     title: SHELL.resetTitle,
