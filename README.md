@@ -6,7 +6,7 @@ Do not claim it. Once the plugin is verified, replace this comment with the badg
 [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
 -->
 
-[![npm version](https://img.shields.io/npm/v/homebridge-generac/beta)](https://www.npmjs.com/package/homebridge-generac)
+[![npm version](https://img.shields.io/npm/v/homebridge-generac)](https://www.npmjs.com/package/homebridge-generac)
 [![npm downloads](https://img.shields.io/npm/dt/homebridge-generac)](https://www.npmjs.com/package/homebridge-generac)
 [![License](https://img.shields.io/github/license/arodbuilds/homebridge-generac)](LICENSE)
 [![Build and Lint](https://github.com/arodbuilds/homebridge-generac/actions/workflows/build.yml/badge.svg)](https://github.com/arodbuilds/homebridge-generac/actions/workflows/build.yml)
@@ -15,7 +15,7 @@ A [Homebridge](https://homebridge.io) plugin that shows the standby generators o
 
 Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobile Link are its trademarks. Uses Generac's undocumented Mobile Link API, which can change without notice.
 
-> **Status:** Beta. Please report what works and what does not in the [issue tracker](https://github.com/arodbuilds/homebridge-generac/issues).
+> **Status:** 1.0.0, released September 26, 2026.
 
 ## Contents
 
@@ -37,16 +37,16 @@ Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobil
 ## Requirements
 
 - Homebridge 1.8 or 2.x, with the Homebridge UI for the settings page.
-- Node 20 or later.
+- Node 20, 22 or 24.
 - A Generac Mobile Link account with at least one generator on it.
 - If the account predates April 21, 2026, a password reset since then. Generac moved Mobile Link sign-in to a new system on that date and did not carry older passwords across, so an older password is rejected until it is reset in the Mobile Link app.
 
 ## Install
 
-Search for "Generac" under Plugins in the Homebridge UI and install the beta, or from a shell on the Homebridge host:
+Search for "Generac" under Plugins in the Homebridge UI and install it, or from a shell on the Homebridge host:
 
 ```shell
-npm i -g homebridge-generac@beta
+npm i -g homebridge-generac
 ```
 
 Then open the plugin's settings from the Plugins page. Everything in the setup below happens on that page. The host's Save button writes config.json and Homebridge restarts the plugin.
@@ -150,7 +150,7 @@ Every sensor also reports Status Active, which is off while the unit is not resp
 
 ## Development
 
-Node 20 or later. Clone the repository, then:
+Node 20, 22 or 24. Clone the repository, then:
 
 ```shell
 npm ci

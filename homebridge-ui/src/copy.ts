@@ -142,6 +142,9 @@ export const SETTINGS = {
     'Removes every generator and its sensors from the Home app.',
     'Clears all settings on this page.',
   ],
+  resetDoneTitle: 'Reset done',
+  resetDoneBody: 'Click Save, then restart Homebridge to remove the generators from the Home app. '
+    + 'Reconnect your Mobile Link account afterwards if you want them back.',
 };
 
 /** Shell strings (SPEC 11.3 F): the disclosure, the Reset dialog, the password toggle, the credit footer and relative times. */

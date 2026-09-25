@@ -297,10 +297,12 @@ export interface InlineDialogHandle {
 /**
  * A dialog in the page flow (the Reset dialog), drawn where it is opened rather than over the page: a fixed
  * overlay would pin to the iframe's own top, off-screen when the opener sits at the bottom of a scrolled host
- * modal. Escape closes it; `onClose` runs on every close, including the caller's.
+ * modal. Escape closes it; `onClose` runs on every close, including the caller's. It is a Bootstrap `card`, so
+ * the host paints it like every other card in both themes: the dark theme sets the card's fill and text itself and
+ * leaves `--bs-body-bg` at its light value, so a panel of its own would be white on the dark page (SPEC section 11.2).
  */
 export function inlineDialog(opts: { title: string; body: Node; actions: Node[]; onClose?: () => void }): InlineDialogHandle {
-  const dialog = el('div', { class: 'ns-inline-dialog', role: 'dialog', 'aria-label': opts.title });
+  const dialog = el('div', { class: 'card ns-inline-dialog', role: 'dialog', 'aria-label': opts.title });
   let onKey: (event: KeyboardEvent) => void = () => undefined;
   const close = (): void => {
     document.removeEventListener('keydown', onKey);

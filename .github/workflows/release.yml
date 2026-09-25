@@ -41,7 +41,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           cache: npm
 
-      # Trusted publishing needs npm 11.5.1 or newer; Node 20 ships npm 10.
+      # Trusted publishing needs npm 11.5.1 or newer. npm 12 requires Node 22.22.2 or newer, so pin 11.
       - name: Update npm
         run: npm install -g npm@11
 

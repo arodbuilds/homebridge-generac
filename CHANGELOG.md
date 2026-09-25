@@ -4,6 +4,20 @@ All notable changes to homebridge-generac are listed here. The format follows Ke
 
 ## Unreleased
 
+## 1.0.0 (September 26, 2026)
+
+First stable release, after a soak of the beta on a live install since September 16, 2026.
+
+### Added
+
+- Node 24 support. The plugin runs on Node 20, 22 and 24, and CI tests all three.
+- After Confirm, the Reset dialog is replaced in place by a done state that says to click Save and restart Homebridge, and the Reset link is hidden until the page reloads.
+
+### Fixed
+
+- The Reset dialog in the Homebridge UI dark theme: it now uses the host's card colours instead of a white panel.
+- The Reset confirmation accepts RESET in any case.
+
 ## 0.1.0-beta.1 (September 15, 2026)
 
 First beta of Generac for Homebridge, a ground-up successor to homebridge-mobilelink.
