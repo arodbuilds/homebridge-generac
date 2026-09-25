@@ -2,7 +2,7 @@
   "name": "homebridge-generac",
   "displayName": "Generac",
   "type": "module",
-  "version": "0.1.0-beta.1",
+  "version": "1.0.0",
   "description": "Generac Mobile Link standby generators in HomeKit: running, fault and maintenance sensors plus starting-battery health.",
   "author": "Alex Rodriguez (https://alex-rodriguez.com)",
   "license": "Apache-2.0",

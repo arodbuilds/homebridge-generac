@@ -100,7 +100,7 @@ describe('paths', () => {
   });
 
   it('pluginVersion reads package.json', () => {
-    assert.equal(pluginVersion(), '0.1.0-beta.1');
+    assert.equal(pluginVersion(), '1.0.0');
   });
 
   it('firmwareVersion keeps the numeric part only (SPEC section 7)', () => {
