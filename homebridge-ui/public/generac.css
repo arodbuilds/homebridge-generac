@@ -219,15 +219,12 @@
   margin-bottom: 1rem;
 }
 
-/* The Reset dialog, in the page flow directly below the Reset link (SPEC section 11.2): a bordered panel in the
-   card's colours, never a fixed overlay. */
+/* The Reset dialog, in the page flow directly below the Reset link (SPEC section 11.2), never a fixed overlay. It
+   carries Bootstrap's `card` class, so its fill, border and text are the host's card surface in both themes; this
+   rule sets none of them (the host's dark theme leaves `--bs-body-bg` white and paints `.card` itself). */
 .generac-ui .ns-inline-dialog {
   margin-top: 0.75rem;
   max-width: 28rem;
-  border: 1px solid var(--bs-border-color, rgba(128, 128, 128, 0.35));
-  border-radius: 0.5rem;
-  background: var(--bs-body-bg, #fff);
-  color: var(--bs-body-color, inherit);
 }
 
 .generac-ui .ns-inline-dialog-title {

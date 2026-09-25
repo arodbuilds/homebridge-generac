@@ -5,8 +5,11 @@
  * card after the Connect flow, and the Reset and Disconnect confirmations in the page flow.
  */
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { afterEach, describe, it } from 'node:test';
 import { FakeEvent, flush, installFakeDom, text, type, type FakeElement } from './fake-dom.js';
+import { fixturesDir } from './helpers.js';
 
 const dom = installFakeDom();
 
@@ -300,6 +303,7 @@ describe('settings page: Reset dialog and Disconnect question in the page flow (
     assert.equal(dialog.parentNode, resetLink(root).parentNode, 'in the Reset link\'s holder');
     assert.equal(resetLink(root).nextElementSibling, dialog, 'directly below the link');
     assert.equal(dom.document.body.querySelector('.ns-modal-backdrop'), null, 'no fixed overlay');
+    assert.ok(dialog.classList.contains('card'), 'a card, so the host paints it in both themes');
     assert.equal(page.ui.resetOpen, true);
     assert.equal(text(dialog.querySelector('.ns-inline-dialog-title')), SHELL.resetTitle);
     assert.deepEqual(dialog.querySelectorAll('li').map((li) => text(li)), SETTINGS.resetLines);
@@ -363,5 +367,27 @@ describe('settings page: Reset dialog and Disconnect question in the page flow (
     assert.deepEqual(control.scrolledInto, [{ block: 'center' }, { block: 'center' }]);
     await dom.clock.advance(15 * 1000);
     assert.equal(accountCard(root).querySelector('.ns-inline-confirm')!.scrolledInto.length, 0, 'a redraw from /status does not scroll');
+  });
+});
+
+describe('settings page: dialogs in the host\'s dark theme (SPEC section 11.2, beta defect)', () => {
+  const css = ['index.css', 'generac.css']
+    .map((f) => fs.readFileSync(path.resolve(fixturesDir, '..', '..', 'homebridge-ui', 'public', f), 'utf8'))
+    .join('\n')
+    // Rules only: the comments explain the light-only variables by name.
+    .replace(/\/\*[\s\S]*?\*\//g, '');
+
+  it('sets no fill or text colour of its own on the Reset dialog or the Disconnect question', () => {
+    const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)]
+      .filter(([, selector]) => /ns-inline-(dialog|confirm)|ns-confirm-question/.test(selector));
+    assert.ok(rules.length > 0);
+    for (const [, selector, body] of rules) {
+      assert.equal(/(^|[\s;])(background(-color)?|color)\s*:/.test(body), false, `${selector.trim()} sets a colour`);
+    }
+  });
+
+  it('reads no light-only page variable and no fixed white anywhere a surface is painted', () => {
+    assert.equal(css.includes('--bs-body-bg'), false);
+    assert.equal(/background[^;]*#fff\b/i.test(css), false);
   });
 });

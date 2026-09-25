@@ -81,9 +81,7 @@ body[class*="config-ui-x-dark-mode"] .generac-ui .card {
    colour, never Bootstrap's dimmed copy of the enabled button and never the host's dark fill. Pointer events stay
    on so the not-allowed cursor shows (a disabled button fires no click either way). */
 .generac-ui .btn:disabled,
-.generac-ui .btn.disabled,
-.ns-modal .btn:disabled,
-.ns-modal .btn.disabled {
+.generac-ui .btn.disabled {
   opacity: 1;
   color: var(--bs-secondary-color, currentColor);
   border-color: var(--bs-border-color, currentColor);
@@ -419,9 +417,7 @@ body[class*="config-ui-x-dark-mode"] .generac-ui .btn-link {
 /* Touch targets: every button, text buttons included, is at least 44px tall on touch devices. */
 @media (pointer: coarse) {
   .generac-ui .btn,
-  .generac-ui .btn-close,
-  .ns-modal .btn,
-  .ns-modal .btn-close {
+  .generac-ui .btn-close {
     min-height: 44px;
     display: inline-flex;
     align-items: center;
@@ -430,57 +426,11 @@ body[class*="config-ui-x-dark-mode"] .generac-ui .btn-link {
 }
 
 body.ns-touch .generac-ui .btn,
-body.ns-touch .generac-ui .btn-close,
-body.ns-touch .ns-modal .btn,
-body.ns-touch .ns-modal .btn-close {
+body.ns-touch .generac-ui .btn-close {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-/* Modal drawn by the page (the Reset dialog). */
-.ns-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.ns-modal {
-  background: var(--bs-body-bg, #fff);
-  color: var(--bs-body-color, inherit);
-  border-radius: 0.5rem;
-  width: 100%;
-  max-width: 28rem;
-  max-height: 100%;
-  overflow: auto;
-  box-shadow: 0 0.5rem 1.5rem rgba(0, 0, 0, 0.3);
-}
-
-.ns-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--bs-border-color, rgba(128, 128, 128, 0.35));
-}
-
-.ns-modal-body {
-  padding: 1rem;
-}
-
-.ns-modal-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--bs-border-color, rgba(128, 128, 128, 0.35));
 }
 
 /* Version and credit footer: one line of secondary text that wraps between its items on narrow screens. */
