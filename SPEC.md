@@ -45,7 +45,8 @@ Successor to the unmaintained `homebridge-mobilelink`. Ground-up rewrite; no cod
 - Platform alias in config.json: `Generac`. Default `name`: `Generac`.
 - Display name in package.json (`displayName`): `Generac`. Banner, README title and settings-page banner: `Generac for Homebridge`.
 - Versioning: `0.1.0-beta.1` first, betas on the npm `beta` tag, then `1.0.0` as first stable.
-- Node `^20.18.0 || ^22.10.0`. Homebridge `^1.8.0 || ^2.0.0-beta.0`.
+- Node `^20.18.0 || ^22.10.0 || ^24.0.0`. Homebridge `^1.8.0 || ^2.0.0-beta.0`.
+- CI tests on Node 20, 22 and 24.
 - Runtime dependencies: `@homebridge/plugin-ui-utils` only. Auth and HTTP use Node built-ins.
 - License Apache-2.0, copyright line "Copyright 2026 Alex Rodriguez (arodbuilds) https://alex-rodriguez.com". NOTICE credits the ha-generac auth flow (sslivins, pjordanandrsn) and homebridge-mobilelink (Nicholas Penree).
 
@@ -215,6 +216,7 @@ Generac additions:
 - The account card is redrawn from every `/status` response. The Connect flow replaces the card in place and hands control back to the card renderer when it ends; it never leaves a view of its own behind. The Disconnect question is page state, so a redraw keeps it open.
 - Reset (Settings disclosure) calls `/reset`, then replaces the platform block with the defaults through `updatePluginConfig()`; the host's SAVE persists it and the restart that follows removes the accessories.
 - Dialogs are never fixed-position overlays: the page sits in an iframe the host sizes to its content, so `position: fixed` pins to the iframe's own top and a dialog can land off-screen (Alex's pass, September 15, 2026). The Reset dialog renders inline directly below the Reset link and the Disconnect question inline on its card; after either opens, the page calls `scrollIntoView({ block: 'center' })` on it, which scrolls the host's modal (same-origin iframe).
+- Dialogs and confirmations use the host's card surface and text variables in both themes; no white-on-dark cards.
 
 ### 11.3 Copy (verbatim)
 
@@ -289,6 +291,8 @@ Generac additions:
 - `Exercise hold (minutes)` default 5, min 1, help `How long the Exercising sensor stays open after an exercise is detected.` Error `Minimum is 1 minute.`
 - `Debug logging` default off, help `Verbose logging. Your password is never logged, even with this on.`
 - Reset dialog lines: `Signs out of Mobile Link and removes the saved sign-in.`, `Removes every generator and its sensors from the Home app.`, `Clears all settings on this page.`
+- Confirmation input accepts RESET in any case.
+- Reset done state (replaces the dialog after Confirm): title `Reset done`, body `Click Save, then restart Homebridge to remove the generators from the Home app. Reconnect your Mobile Link account afterwards if you want them back.`
 
 **F. Shell strings** (the plugin shell's own copy, shared with the author's other plugins)
 - Disclosure summary: `Advanced`
@@ -314,7 +318,7 @@ Generac additions:
 
 `assets/screenshots/` holds the masked README screenshots, rendered against a fake host with fictional data: `account-connected.png`, `connect-code.png`, `generator-ready.png`, `generator-fault.png` and `settings-advanced.png`. Screenshots never show a real email, serial number, address or account name. The banner and the screenshots are referenced from the repository and are not shipped in the npm package.
 
-Open item: the mark colour is #E8862B, which is close to Generac's brand orange. It is to be changed to a colour clearly apart from Generac orange and Peloton's oxide red before 1.0.0.
+2026-09-25: Decided to keep the mark colour (#E8862B); the affiliation line and display name carry the non-affiliation.
 
 ## 14. Testing
 
@@ -331,6 +335,7 @@ Open item: the mark colour is #E8862B, which is close to Generac's brand orange.
 3. Build 3: affiliation line moved, README with masked screenshots, SECURITY.md, CHANGELOG dated, release workflow with a one-time token fallback for the first publish. Then: GitHub pre-release `v0.1.0-beta.1` publishes to npm `beta` with provenance; switch the npm package to a GitHub Actions trusted publisher and delete the token; reinstall from npm on the Pi through the Homebridge UI; r/homebridge tester post.
 4. Soak, then r/homebridge tester post, then `1.0.0`, then the Homebridge verification issue (keywords must include `supports-hap`).
 5. 0.2.0: propane tank monitors.
+6. 1.0.0: engines and CI on Node 20, 22, 24; beta defects fixed; README status line removed; GitHub release marked latest publishes to npm `latest`. Then the Homebridge verification issue.
 
 ## 16. Decisions and open items
 
@@ -343,6 +348,6 @@ Open item: the mark colour is #E8862B, which is close to Generac's brand orange.
 - 2026-09-15: Live pass on the Pi passed both themes. Alex's Reset and Connect pass found two page defects, fixed in build 3: the account card did not leave the Connect flow's view after the code step, and the Reset dialog rendered off-screen. The platform side worked: new credentials were picked up within 41 seconds with no restart.
 - Open: fuel type enum values 2 and 3 are presumed. Confirm on a propane unit.
 - Open: `tuProperties` shape for tank monitors. Needs a type-2 fixture from a tester.
-- Open: icon colour (section 13).
-- Open: confirm eventType 42 is the exercise-complete event, and whether live status during the cycle is 3 or 2. First capture expected Saturday, September 19, 2026.
-- Open: whether the Homebridge verification bot accepts a plugin whose `homebridge-ui` has no `public/index.html` until build 2 lands (it should; verification is after 1.0.0).
+- 2026-09-25: Icon colour kept as is; see section 13.
+- 2026-09-19: Exercising sensor fired on the weekly exercise as designed; the eventType 42 timestamp advanced and the Notify Switch automation delivered. Live-vs-retroactive path not distinguished in the log; both are accepted.
+- 2026-09-25: Verification requirements checked (May 5, 2026 revision): all met once engines include Node 24. homebridge-mobilelink is on the verified list but non-functional since Generac's April 21, 2026 auth change and unpublished since December 2023; the submission states that this plugin offers strictly more.
