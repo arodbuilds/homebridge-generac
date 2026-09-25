@@ -6,7 +6,7 @@ Do not claim it. Once the plugin is verified, replace this comment with the badg
 [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
 -->
 
-[![npm version](https://img.shields.io/npm/v/homebridge-generac/beta)](https://www.npmjs.com/package/homebridge-generac)
+[![npm version](https://img.shields.io/npm/v/homebridge-generac)](https://www.npmjs.com/package/homebridge-generac)
 [![npm downloads](https://img.shields.io/npm/dt/homebridge-generac)](https://www.npmjs.com/package/homebridge-generac)
 [![License](https://img.shields.io/github/license/arodbuilds/homebridge-generac)](LICENSE)
 [![Build and Lint](https://github.com/arodbuilds/homebridge-generac/actions/workflows/build.yml/badge.svg)](https://github.com/arodbuilds/homebridge-generac/actions/workflows/build.yml)
@@ -43,10 +43,10 @@ Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobil
 
 ## Install
 
-Search for "Generac" under Plugins in the Homebridge UI and install the beta, or from a shell on the Homebridge host:
+Search for "Generac" under Plugins in the Homebridge UI and install it, or from a shell on the Homebridge host:
 
 ```shell
-npm i -g homebridge-generac@beta
+npm i -g homebridge-generac
 ```
 
 Then open the plugin's settings from the Plugins page. Everything in the setup below happens on that page. The host's Save button writes config.json and Homebridge restarts the plugin.
@@ -150,7 +150,7 @@ Every sensor also reports Status Active, which is off while the unit is not resp
 
 ## Development
 
-Node 20 or later. Clone the repository, then:
+Node 20, 22 or 24. Clone the repository, then:
 
 ```shell
 npm ci
