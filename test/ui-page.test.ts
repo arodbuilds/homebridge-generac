@@ -352,13 +352,54 @@ describe('settings page: Reset dialog and Disconnect question in the page flow (
     statusScript(NOT_CONNECTED);
     dialog.querySelectorAll('button').find((b) => text(b) === SHELL.resetConfirm)!.click();
     await flush();
-    assert.equal(root.querySelector('.ns-inline-dialog'), null);
+    assert.equal(root.querySelectorAll('.ns-inline-dialog').filter((d) => !d.classList.contains('gn-reset-done')).length, 0);
     assert.equal(requests.filter((r) => r.path === '/reset').length, 1);
     assert.equal(page.config.name, 'Generac');
     assert.equal(page.config.debug, false);
     assert.equal(field(root, 'name').value, 'Generac');
     assert.deepEqual(buttons(accountCard(root)), [ACCOUNT.connect]);
     assert.deepEqual(toasts, [`success: ${SHELL.resetDone}`]);
+  });
+
+  it('replaces the dialog in place with the done state after Confirm and hides the Reset link until a reload', async () => {
+    statusScript(CONNECTED);
+    const { root, page } = mount({ platform: 'Generac', name: 'Basement' });
+    page.startPolling();
+    await flush();
+    root.querySelector('#section-settings details')!.open = true;
+    resetLink(root).click();
+    const dialog = root.querySelector('.ns-inline-dialog')!;
+    const holder = dialog.parentNode;
+    type(dialog.querySelector('input')!, 'RESET');
+    answers.set('/reset', { ok: true });
+    statusScript(NOT_CONNECTED);
+    dialog.querySelectorAll('button').find((b) => text(b) === SHELL.resetConfirm)!.click();
+    await flush();
+    const done = root.querySelector('.gn-reset-done');
+    assert.ok(done, 'the done state is on the page');
+    assert.notEqual(holder, done.parentNode, 'the section was redrawn');
+    assert.ok(done.parentNode!.classList.contains('gn-reset'), 'in the Reset holder, where the dialog was');
+    assert.equal(done.parentNode!.children.length, 1, 'nothing else in the holder');
+    assert.equal(text(done.querySelector('.ns-inline-dialog-title')), SETTINGS.resetDoneTitle);
+    assert.equal(text(done.querySelector('.ns-inline-dialog-body')), SETTINGS.resetDoneBody);
+    assert.ok(done.classList.contains('card'), 'on the host\'s card surface');
+    assert.deepEqual(buttons(done), []);
+    assert.equal(root.querySelectorAll('#section-settings button').find((b) => text(b) === SHELL.reset), undefined, 'no Reset link');
+    assert.equal(root.querySelector('#section-settings details')!.open, true, 'the disclosure stays open across the redraw');
+    assert.deepEqual(done.scrolledInto, [{ block: 'center' }], 'scrolled into view');
+    assert.equal(page.ui.resetOpen, false);
+    assert.equal(page.ui.resetDone, true);
+
+    // Later redraws (a /status poll, a setting change) keep the done state and keep the link hidden.
+    await dom.clock.advance(15 * 1000);
+    page.rerender('settings');
+    assert.ok(root.querySelector('.gn-reset-done'));
+    assert.equal(root.querySelectorAll('#section-settings button').find((b) => text(b) === SHELL.reset), undefined);
+
+    // A reload is a new page: the link is back and there is no done state.
+    const fresh = mount();
+    assert.equal(fresh.root.querySelector('.gn-reset-done'), null);
+    assert.ok(resetLink(fresh.root));
   });
 
   it('scrolls the host to the Disconnect question when it opens', async () => {

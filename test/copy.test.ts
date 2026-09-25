@@ -84,4 +84,12 @@ describe('UI copy (SPEC section 11.3)', () => {
     assert.equal(copy.RELATIVE.hours(1), '1 hour ago');
     assert.equal(copy.RELATIVE.days(2), '2 days ago');
   });
+
+  it('the Reset done state is the 11.3 E title and body', () => {
+    assert.ok(spec.includes('Reset done state (replaces the dialog after Confirm): title `Reset done`, body `'
+      + `${copy.SETTINGS.resetDoneBody}\``));
+    assert.equal(copy.SETTINGS.resetDoneTitle, 'Reset done');
+    assert.equal(copy.SETTINGS.resetDoneBody, 'Click Save, then restart Homebridge to remove the generators from the Home app. '
+      + 'Reconnect your Mobile Link account afterwards if you want them back.');
+  });
 });

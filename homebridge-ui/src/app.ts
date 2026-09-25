@@ -63,6 +63,8 @@ export interface UiState {
   disconnectOpen: boolean;
   /** The Reset dialog is open under the Reset link. */
   resetOpen: boolean;
+  /** Reset was confirmed: the done state stands where the dialog was and the Reset link stays hidden until a reload. */
+  resetDone: boolean;
   rename: { id: number; value: string } | null;
   /** When the Checking state began (the code step succeeded, or the page first saw it), for the card's second line. */
   checkingSince: number | null;

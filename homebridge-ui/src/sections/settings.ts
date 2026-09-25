@@ -15,14 +15,17 @@ import { hasOneDecimal } from '../validate.js';
 
 /**
  * The Reset dialog: the three lines from SPEC section 11.3 E, "Type RESET to confirm.", Confirm disabled until
- * RESET is typed in any case. It renders inline directly below the Reset link (SPEC section 11.2) and is page state, so a redraw of
- * the section keeps it open; opening it by click focuses the field and scrolls the host modal to the dialog.
+ * RESET is typed in any case. It renders inline directly below the Reset link (SPEC section 11.2) and is page state,
+ * so a redraw of the section keeps it open; opening it by click focuses the field and scrolls the host modal to the
+ * dialog. Confirm redraws the page with the done state in the dialog's place and scrolls the host to it.
  */
 function resetDialog(app: App, opened: boolean): HTMLElement {
   const confirmInput = el('input', { type: 'text', class: 'form-control', autocomplete: 'off', spellcheck: 'false', id: 'gn-reset-confirm' });
   let close: () => void = () => undefined;
   const confirm = button(SHELL.resetConfirm, () => {
     close();
+    // The done state replaces the dialog in place when the page is redrawn below (SPEC section 11.3 E).
+    app.ui.resetDone = true;
     // Sign out and forget the saved state on the server; the platform removes the accessories on its next start.
     void callServer('/reset').then(() => app.refreshStatus());
     if (app.status) {
@@ -33,6 +36,10 @@ function resetDialog(app: App, opened: boolean): HTMLElement {
     app.ui.rename = null;
     app.replaceConfig(emptyConfig());
     toastSuccess(SHELL.resetDone);
+    const done = document.querySelector<HTMLElement>('.gn-reset-done');
+    if (done) {
+      reveal(done);
+    }
   }, 'btn btn-danger btn-sm');
   confirm.disabled = true;
   confirmInput.addEventListener('input', () => {
@@ -61,9 +68,24 @@ function resetDialog(app: App, opened: boolean): HTMLElement {
   return dialog.el;
 }
 
-/** The Reset link, with the dialog directly below it while open. */
+/**
+ * The done state after Confirm (SPEC section 11.3 E): the dialog's place on the page, a card with the title and one
+ * line, no buttons. It stays until the page reloads.
+ */
+function resetDoneState(): HTMLElement {
+  return el('div', { class: 'card ns-inline-dialog gn-reset-done', role: 'status' },
+    el('div', { class: 'ns-inline-dialog-title fw-semibold' }, SETTINGS.resetDoneTitle),
+    el('div', { class: 'ns-inline-dialog-body' }, el('p', { class: 'mb-0' }, SETTINGS.resetDoneBody)),
+  );
+}
+
+/** The Reset link, with the dialog directly below it while open; after Confirm, only the done state. */
 function resetControl(app: App): HTMLElement {
   const holder = el('div', { class: 'gn-reset' });
+  if (app.ui.resetDone) {
+    holder.appendChild(resetDoneState());
+    return holder;
+  }
   const link = dangerLinkButton(SHELL.reset, () => {
     if (app.ui.resetOpen) {
       return;
