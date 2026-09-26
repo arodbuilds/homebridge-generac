@@ -15,7 +15,7 @@ A [Homebridge](https://homebridge.io) plugin that shows the standby generators o
 
 Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobile Link are its trademarks. Uses Generac's undocumented Mobile Link API, which can change without notice.
 
-> **Status:** 1.0.1, released RELEASE_DATE.
+> **Status:** 1.0.1, released September 26, 2026.
 
 ## Contents
 
