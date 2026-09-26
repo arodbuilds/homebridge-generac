@@ -34,7 +34,7 @@ export interface UiGenerator {
   exerciseTimeFromApi: string | null;
   lastExerciseAt: string | null;
   fuelType: string | null;
-  /** Tank level on propane units: not reported until 0.2.0, so the Fuel row stays hidden (SPEC section 2.2). */
+  /** Tank level on propane units: not reported (propane support is on hold, SPEC section 2.2), so the Fuel row stays hidden. */
   fuelPercent?: number | null;
   outdoorTempF: number | null;
   lastSeen: string | null;

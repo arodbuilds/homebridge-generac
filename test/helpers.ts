@@ -132,3 +132,28 @@ export function fakeLogger(): { log: LogLine[]; logger: import('homebridge').Log
   }) as unknown as import('homebridge').Logger;
   return { log, logger, lines: (level) => log.filter((l) => l.level === level).map((l) => l.msg) };
 }
+
+/**
+ * Values a failed sign-in page can carry that must never reach a terminal, a log or a debug file (SPEC section 12).
+ * Shared by test/cli-auth0-stub.ts, which serves the page, and the CLI tests that look for them.
+ */
+export const PAGE_SECRETS = {
+  state: 'hKFo2SBxU2VjcmV0U3RhdGVWYWx1ZUZvclRlc3Q',
+  code: 'Qm9ndXNDb2RlVmFsdWVGb3JUZXN0MTIzNDU2',
+  token: 'eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJlVmFsdWU',
+};
+
+/** An Auth0 password page answering a wrong password, with the state, a code and a token in it. */
+export function failedPasswordPage(): string {
+  const { state, code, token } = PAGE_SECRETS;
+  return [
+    '<!DOCTYPE html><html><body>',
+    `<form method="POST" action="/u/login/password?state=${state}">`,
+    `<input type="hidden" name="state" value="${state}">`,
+    '<input type="text" name="username" value="you@example.com">',
+    '<span class="ulp-input-error-message" data-error-code="wrong-credentials">Wrong email or password</span>',
+    `<a href="/authorize/resume?client_id=c&amp;code=${code}">Continue</a>`,
+    `<script>window.__cfg = {"state":"${state}","access_token":"${token}"};</script>`,
+    '</form></body></html>',
+  ].join('\n');
+}

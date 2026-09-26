@@ -4,7 +4,20 @@ All notable changes to homebridge-generac are listed here. The format follows Ke
 
 ## Unreleased
 
-## 1.0.0 (September 26, 2026)
+## 1.0.1 (RELEASE_DATE)
+
+### Changed
+
+- The exercise watch window now opens 10 minutes before the exercise time instead of 2, and still closes 20 minutes after it, so the plugin checks at the faster interval for 30 minutes a day. Mobile Link can report a later time than the one the generator keeps: one unit starts at 10:00 while Mobile Link says 10:05. With the prefilled time, the first minutes of the exercise were missed and the Exercising sensor only opened later, when Mobile Link recorded the finished exercise. Now the window opens at 9:55 for that unit.
+- The intro on the settings page and at the top of the plugin's configuration lists the Exercising sensor and no longer promises a propane tank level.
+- Propane tank monitors on the account are listed on the settings page and in the Homebridge log as not supported. Propane support is on hold with no planned release, so the plugin no longer says tank level support is coming.
+
+### Fixed
+
+- `homebridge-generac login` no longer shows the sign-in code or state in the terminal. Every redirect it prints shows REDACTED in place of the code, the state and any token, and a failed token request shows only the error and its description.
+- `homebridge-generac login` no longer writes debug files to the folder you run it from when a sign-in step fails. It prints the step, the HTTP status and the error code instead. The new `--debug` option also saves the page, with codes, state and tokens redacted, to `homebridge-generac/debug/` in the Homebridge storage folder (mode 600).
+
+## 1.0.0 (September 25, 2026)
 
 First stable release, after a soak of the beta on a live install since September 16, 2026.
 

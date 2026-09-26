@@ -2,17 +2,19 @@
 /**
  * homebridge-generac CLI
  *
- *   homebridge-generac login [--out <file>]   sign in once, save refresh token
- *   homebridge-generac status [--creds <file>] print what the account exposes
+ *   homebridge-generac login [--out <file>] [--debug]   sign in once, save refresh token
+ *   homebridge-generac status [--creds <file>]           print what the account exposes
  *
  * Run `login` as the same user Homebridge runs as so the credentials land where
- * the platform looks for them.
+ * the platform looks for them. With `--debug`, a failed sign-in step's page is
+ * saved, redacted, to a `debug` folder next to the credentials file (SPEC section 12).
  */
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
-import { login, type MfaType } from './auth.js';
+import { extractAuth0ErrorCode, login, redactBody, type MfaType } from './auth.js';
 import { MobileLinkClient, readCredentials, writeCredentials } from './api.js';
+import { writeFileAtomic } from './files.js';
 import { toGeneratorState } from './model.js';
 import { credentialCandidates, defaultStoragePath, primaryCredentialsPath } from './settings.js';
 import { DEVICE_TYPE, DEVICE_TYPE_LABEL } from './types.js';
@@ -51,8 +53,31 @@ async function prompt(question: string, hidden = false): Promise<string> {
   return answer.trim();
 }
 
+/**
+ * What `login` does with the page of a failed sign-in step. Without `--debug` it prints the step, the HTTP status
+ * and the Auth0 error code. With `--debug` it also saves the page, redacted, as `<step>-<status>.html` (mode 600) in
+ * a `debug` folder (mode 700) next to the credentials file: `<storage>/homebridge-generac/debug/` by default.
+ * Nothing is ever written to the working directory.
+ */
+function failureBodySink(out: string, debug: boolean): (step: string, status: number, body: string) => void {
+  return (step, status, body) => {
+    const code = extractAuth0ErrorCode(body);
+    log(step, `HTTP ${status}${code ? ` (auth0: ${code})` : ''}`);
+    if (!debug) {
+      return;
+    }
+    const dir = path.join(path.dirname(out), 'debug');
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    fs.chmodSync(dir, 0o700);
+    const f = path.join(dir, `${step}-${status}.html`);
+    writeFileAtomic(f, redactBody(body), 0o600);
+    log('debug', `saved the server response, redacted, to ${f}`);
+  };
+}
+
 async function cmdLogin(): Promise<void> {
   const out = arg('--out') ?? primaryCredentialsPath(defaultStoragePath());
+  const debug = process.argv.includes('--debug');
   const email = process.env.GENERAC_EMAIL || (await prompt('Mobile Link email: '));
   const password = process.env.GENERAC_PASSWORD || (await prompt('Mobile Link password: ', true));
 
@@ -60,11 +85,7 @@ async function cmdLogin(): Promise<void> {
   const result = await login(email, password, {
     log,
     mfaPrompt: async (type: MfaType) => prompt(`Enter the ${type.toUpperCase()} code you just received: `),
-    onFailureBody: (step, status, body) => {
-      const f = path.join(process.cwd(), `homebridge-generac-debug-${step}-${status}.html`);
-      fs.writeFileSync(f, body);
-      log('debug', `saved server response to ${f}`);
-    },
+    onFailureBody: failureBodySink(out, debug),
   });
 
   writeCredentials(out, {
@@ -114,7 +135,7 @@ async function cmdStatus(): Promise<void> {
 const cmd = process.argv[2];
 const run = cmd === 'login' ? cmdLogin : cmd === 'status' ? cmdStatus : null;
 if (!run) {
-  console.error('Usage: homebridge-generac <login [--out file] | status [--creds file]>');
+  console.error('Usage: homebridge-generac <login [--out file] [--debug] | status [--creds file]>');
   process.exit(2);
 }
 run().catch((err) => {

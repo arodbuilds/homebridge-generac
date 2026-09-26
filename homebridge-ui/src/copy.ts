@@ -14,8 +14,7 @@ export const BANNER = {
 
 export const INTRO = {
   one: 'Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. '
-    + 'Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor and a starting battery reading. '
-    + 'Propane models will also get a tank level later.',
+    + 'Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor, an Exercising sensor and a starting battery reading.',
   two: 'It is read only. It cannot start, stop or exercise the generator. Connect your account below and your generators are found for you.',
   accountHeading: 'Mobile Link account',
   accountHelp: 'One account per Homebridge instance. Use the email and password you use in the Mobile Link app.',
@@ -102,7 +101,7 @@ export const GENERATOR = {
   name: 'Name',
   saveName: 'Save name',
   cancel: 'Cancel',
-  alsoPropane: 'Also on your account: Propane tank monitor (tank level support is coming).',
+  alsoPropane: 'Also on your account: Propane tank monitor (not supported).',
   alsoEcobee: (name: string): string => `Also on your account: ecobee thermostat "${name}" (already in HomeKit, skipped).`,
 };
 

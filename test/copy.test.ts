@@ -59,6 +59,13 @@ describe('UI copy (SPEC section 11.3)', () => {
     assert.ok(schema.headerDisplay.endsWith(` ${copy.INTRO.affiliation}`), 'config.schema.json headerDisplay ends with the affiliation line');
   });
 
+  it('the schema header is Intro 1 followed by the affiliation line, and Intro 1 names all five readings', () => {
+    const schema = JSON.parse(fs.readFileSync(path.resolve(fixturesDir, '..', '..', 'config.schema.json'), 'utf8')) as { headerDisplay: string };
+    assert.equal(schema.headerDisplay, `${copy.INTRO.one} ${copy.INTRO.affiliation}`);
+    assert.equal(copy.INTRO.one, 'Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. '
+      + 'Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor, an Exercising sensor and a starting battery reading.');
+  });
+
   it('the display name is Generac and the banner title Generac for Homebridge (SPEC section 3)', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve(fixturesDir, '..', '..', 'package.json'), 'utf8')) as { displayName: string };
     assert.equal(pkg.displayName, 'Generac');
@@ -78,6 +85,7 @@ describe('UI copy (SPEC section 11.3)', () => {
     assert.equal(copy.GENERATOR.weekly('10:00 AM'), '10:00 AM weekly');
     assert.equal(copy.GENERATOR.dateAt('September 12, 2026', '10:06 AM'), 'September 12, 2026 at 10:06 AM');
     assert.equal(copy.GENERATOR.alsoEcobee('Main Level'), 'Also on your account: ecobee thermostat "Main Level" (already in HomeKit, skipped).');
+    assert.equal(copy.GENERATOR.alsoPropane, 'Also on your account: Propane tank monitor (not supported).', 'propane support is on hold (SPEC section 2.2)');
     assert.equal(copy.SHELL.required('Name'), 'Name is required.');
     assert.equal(copy.RELATIVE.minutes(1), '1 minute ago');
     assert.equal(copy.RELATIVE.minutes(5), '5 minutes ago');

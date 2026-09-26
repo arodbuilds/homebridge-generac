@@ -30,7 +30,7 @@ Successor to the unmaintained `homebridge-mobilelink`. Ground-up rewrite; no cod
 7. Exercising sensor with retroactive detection from the last-exercise event.
 
 ### 2.2 Deferred
-1. Propane tank monitors (type 2) as a battery-percentage accessory. Planned for 0.2.0. The generator card already reserves a Fuel row.
+1. Propane tank monitors (type 2) as a battery-percentage accessory: on hold until a tester with a tank monitor volunteers. No release is planned, and nothing the plugin shows promises it.
 2. Remote start, stop or exercise. No command endpoint has been validated and the plugin stays read only until one is.
 3. Multiple accounts.
 
@@ -95,7 +95,7 @@ Base `https://app.mobilelinkgen.com/api/v5`. Bearer auth. `Accept: application/j
 |---|---|---|
 | 0 | generator | accessory |
 | 1 | unknown | log once, skip |
-| 2 | propane tank monitor | log once with the "coming" line, skip (0.2.0) |
+| 2 | propane tank monitor | log once as not supported, skip |
 | 7 | linked ecobee thermostat | log once as skipped, never call details |
 
 ### 5.3 Bearer, not DPoP
@@ -127,7 +127,7 @@ Services:
 3. ContactSensor subtype `fault`, name "{Name} Fault". Open while `fault`.
 4. ContactSensor subtype `maintenance`, name "{Name} Maintenance Due". Open while `maintenanceDue`.
 5. Battery: BatteryLevel, StatusLowBattery, ChargingState NOT_CHARGEABLE.
-6. ContactSensor subtype `exercising`, name "{Name} Exercising", created when `exerciseSensor` is true. Opens when a poll observes status 3, or when `lastExerciseAt` changes to a newer value than the one persisted in state.json (retroactive). Stays open until both the status has left 3 and `exerciseHoldMinutes` have elapsed since the last trigger. On first run the current `lastExerciseAt` is recorded without opening the sensor.
+6. ContactSensor subtype `exercising`, name "{Name} Exercising", created when `exerciseSensor` is true. Opens when a poll observes status 3, or when `lastExerciseAt` changes to a newer value than the one persisted in state.json (retroactive). Stays open until both the status has left 3 and `exerciseHoldMinutes` have elapsed since the last trigger. On first run the current `lastExerciseAt` is recorded without opening the sensor. Live detection relies on the exercise watch window (section 8), which runs from 10 minutes before the exercise time until 20 minutes after it.
 
 Every contact sensor carries `StatusActive` (= `connected`, and false after three consecutive poll failures) and `StatusFault` (= `fault`). ConfiguredName is set once and never overwritten so the user's Home app renames stick.
 
@@ -145,7 +145,7 @@ Not an Outlet, Switch or any other service. Rationale in README.
 - On any other failure: exponential backoff with ±20% jitter starting at the active interval, capped at 30 minutes. After three consecutive failures, sensors report StatusActive false.
 - On `invalid_grant`: Reconnect needed state, retry hourly.
 - A poll is triggered immediately when credentials appear or change on disk.
-- Exercise watch window: when `exerciseTime` is set (or derivable from the API), poll at the active interval from 2 minutes before it until 20 minutes after it, every day, in the host's local time zone.
+- Exercise watch window: when `exerciseTime` is set (or derivable from the API), poll at the active interval from 10 minutes before it until 20 minutes after it, every day, in the host's local time zone: 30 minutes a day at the active interval. It opens early because the unit can start before the time Mobile Link reports (section 16, September 26, 2026). A window that crosses midnight is handled: an exercise at 00:05 opens the window at 23:55 the day before. `WATCH_BEFORE_MINUTES` = 10 and `WATCH_AFTER_MINUTES` = 20 in `exercise.ts`.
 
 ## 9. Configuration (config.json)
 
@@ -223,7 +223,7 @@ Generac additions:
 **A. Intro**
 - Banner title: `Generac for Homebridge`
 - Banner tagline: `Standby generator status in the Home app`
-- Intro 1: `Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor and a starting battery reading. Propane models will also get a tank level later.`
+- Intro 1: `Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor, an Exercising sensor and a starting battery reading.`
 - Intro 2: `It is read only. It cannot start, stop or exercise the generator. Connect your account below and your generators are found for you.`
 - Account heading: `Mobile Link account`
 - Account help: `One account per Homebridge instance. Use the email and password you use in the Mobile Link app.`
@@ -276,7 +276,7 @@ Generac additions:
 - Not responding note: `Mobile Link hasn't heard from this generator since {time}.`
 - Rows: `Battery` `{volts} V` with badge `Low` at or below threshold; `Fuel` `{percent}%` with help `Propane models only` (row hidden on non-propane units); `Engine hours` `{n} h`; `Exercise time` `{time} weekly` (the configured `exerciseTime`, 12-hour, else the API value); `Last exercise` `{date} at {time}`; `Last seen` `{relative time}`
 - Footer button: `Rename`. Inline field label `Name`, buttons `Save name`, `Cancel`. Required message `Name is required.`
-- Also lines: `Also on your account: Propane tank monitor (tank level support is coming).` and `Also on your account: ecobee thermostat "{name}" (already in HomeKit, skipped).`
+- Also lines: `Also on your account: Propane tank monitor (not supported).` and `Also on your account: ecobee thermostat "{name}" (already in HomeKit, skipped).`
 
 **E. Settings (Advanced disclosure)**
 - `Name` (required, default `Generac`)
@@ -308,8 +308,10 @@ Generac additions:
 - Info: credentials source on start; generator added, restored or removed; every status, fault or connection transition with battery voltage; one-time lines for skipped devices.
 - Warn: poll failures with HTTP status and retry delay; unreadable credentials with the fix.
 - Error: `invalid_grant` once per episode with the reconnect instruction.
-- Debug (when `debug`): auth step redirects (truncated), token refresh events, per-poll timing.
-- Never: passwords, refresh tokens, access tokens, DPoP keys, MFA codes, full HTML bodies.
+- Debug (when `debug`): auth step redirects (redacted, then truncated), token refresh events, per-poll timing.
+- Never: passwords, refresh tokens, access tokens, DPoP keys, MFA codes, authorization codes, sign-in `state` values, full HTML bodies.
+- Redaction: every sign-in redirect that reaches a log line or an `AuthError` message goes through `redactUrl()` in `auth.ts` first, then `truncate()` (160 characters). `redactUrl()` replaces the values of the `code`, `state`, `nonce`, `code_challenge`, `code_verifier`, `id_token`, `access_token` and `refresh_token` parameters, in the query and in a `#fragment`, with `REDACTED` and keeps the key names, so a line still shows the shape of the redirect: `302 -> com.generac.mobilelink.auth0://…/callback?code=REDACTED&state=REDACTED`. Token endpoint failures (`token` and `refresh`) put only `error` and `error_description` from the payload in the message, never the whole payload or an HTML body.
+- CLI `homebridge-generac login`: when a sign-in step fails it prints the step, the HTTP status and the Auth0 error code, and writes no file. With `--debug` it also saves the page to `<step>-<status>.html`, mode 600, in a `debug` folder (mode 700) next to the credentials file: `<storage>/homebridge-generac/debug/` by default (the same storage path the credentials use), or beside the `--out` file. Before writing, `redactBody()` applies the `redactUrl()` rules to every URL in the page and redacts the same keys as hidden form fields (`<input name="state" value="…">`) and JSON fields, plus anything shaped like a JWT. Nothing is ever written to the working directory. Usage: `homebridge-generac <login [--out file] [--debug] | status [--creds file]>`.
 - Captures (when `debug`): on any status change or a new `lastExerciseAt`, the raw details payload is written to `<storagePath>/homebridge-generac/captures/{ISO timestamp with colons replaced by dashes}-status{n}.json`, keeping the newest 10.
 
 ## 13. Assets and branding
@@ -323,7 +325,8 @@ Generac additions:
 ## 14. Testing
 
 - Unit, fixture-driven, no network: `model.ts` against `details-generator-ready.json` and synthesised Running, Exercising, Stopped, Warning, alarm, disconnected and maintenance variants; battery mapping; exercise time; property coercion.
-- Auth unit: DPoP thumbprint known-answer against a fixed PEM; proof header and payload shape; `use_dpop_nonce` retry; `invalid_grant` classification; Auth0 error-code extraction; challenge path detection.
+- Auth unit: DPoP thumbprint known-answer against a fixed PEM; proof header and payload shape; `use_dpop_nonce` retry; `invalid_grant` classification; Auth0 error-code extraction; challenge path detection; redaction (a callback redirect logs `code=REDACTED`, an unexpected redirect's message carries no code or state value, a failed token exchange's message carries only `error` and `error_description`).
+- CLI: `login` runs as a child process with `fetch` replaced by a scripted Auth0 (`test/cli-auth0-stub.ts`, loaded with `node --import`). No file is written without `--debug`; with it, the redacted page lands under the storage directory with mode 600.
 - API unit with mocked `fetch`: token cached until 120 s before expiry; concurrent calls share one refresh; 401 clears the token; 500 on details is per-apparatus.
 - Platform unit: type routing (0 accessory, 2 and 7 log-once), name override, backoff schedule, invalid_grant hourly.
 - Live on the Pi: `homebridge-generac status`; Homebridge log on first start; Home app sensors; a captured Exercising payload as the second real fixture.
@@ -334,8 +337,9 @@ Generac additions:
 2. Build 2: state file consumer, UI server, settings page, `customUi`, Rename, Exercising sensor with watch window and retroactive detection, captures. Chrome pass on the Pi in both themes and at phone width.
 3. Build 3: affiliation line moved, README with masked screenshots, SECURITY.md, CHANGELOG dated, release workflow with a one-time token fallback for the first publish. Then: GitHub pre-release `v0.1.0-beta.1` publishes to npm `beta` with provenance; switch the npm package to a GitHub Actions trusted publisher and delete the token; reinstall from npm on the Pi through the Homebridge UI; r/homebridge tester post.
 4. Soak, then r/homebridge tester post, then `1.0.0`, then the Homebridge verification issue (keywords must include `supports-hap`).
-5. 0.2.0: propane tank monitors.
+5. Propane tank monitors: on hold until a tester with a tank monitor volunteers.
 6. 1.0.0: engines and CI on Node 20, 22, 24; beta defects fixed; README status line removed; GitHub release marked latest publishes to npm `latest`. Then the Homebridge verification issue.
+7. 1.0.1 (build 5), during verification review: CLI `login` redaction and debug files under the storage directory only with `--debug` (section 12); exercise watch window opens 10 minutes early (section 8); Intro 1 names the Exercising sensor and drops the propane promise (11.3 A); propane tank support on hold, with every promise removed from the settings page, the log and the README (sections 2.2, 5.2, 11.3 D).
 
 ## 16. Decisions and open items
 
@@ -351,3 +355,6 @@ Generac additions:
 - 2026-09-25: Icon colour kept as is; see section 13.
 - 2026-09-19: Exercising sensor fired on the weekly exercise as designed; the eventType 42 timestamp advanced and the Notify Switch automation delivered. Live-vs-retroactive path not distinguished in the log; both are accepted.
 - 2026-09-25: Verification requirements checked (May 5, 2026 revision): all met once engines include Node 24. homebridge-mobilelink is on the verified list but non-functional since Generac's April 21, 2026 auth change and unpublished since December 2023; the submission states that this plugin offers strictly more.
+- 2026-09-26: Live test with debug on: the Homebridge log is clean. The CLI `login` still printed the authorization code and wrote debug pages to the working directory; both fixed in 1.0.1 (section 12).
+- 2026-09-26: The unit started at 10:00 while the API reported 10:05, so the watch window opens 10 minutes early (it was 2) to cover a start before the reported time. With the prefilled 10:05, the window now opens at 09:55; before, fast polling began at 10:03 and the sensor only opened later through retroactive detection.
+- 2026-09-26: Propane tank support is on hold with no planned release, until a tester with a tank monitor volunteers (the `tuProperties` open item above needs one). The settings page line, the Homebridge log line and the README no longer promise it. The 1.0.0 and 0.1.0-beta.1 CHANGELOG entries stay as they are, since they describe what shipped then.

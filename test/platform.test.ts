@@ -163,7 +163,8 @@ describe('GeneracPlatform', () => {
     assert.equal(fetcher.callsTo(`${API_BASE}/Apparatus/details/`).length, 1, 'details called only for the generator');
 
     const info = built.lines('info');
-    assert.ok(info.some((l) => l.includes('propane tank monitor "Tank"')));
+    assert.ok(info.some((l) => l.includes('propane tank monitor "Tank"') && l.endsWith('Tank monitors are not supported.')));
+    assert.equal(info.some((l) => /planned|coming|0\.2\.0/.test(l)), false, 'no promise of propane support in the log');
     assert.ok(info.some((l) => l.includes('Skipping linked ecobee thermostat "Thermostat"')));
     assert.ok(info.some((l) => l.includes('Skipping unknown device "Mystery"')));
     assert.ok(info.some((l) => l.includes('Added generator "Blue Door" (22KW/999 GUARD-NO T/SW AL, S/N 3000000001)')));
@@ -206,7 +207,7 @@ describe('GeneracPlatform', () => {
     const info = acc.getService(Service.AccessoryInformation)!;
     assert.equal(info.getCharacteristic(Characteristic.Manufacturer).value, 'Generac');
     assert.equal(info.getCharacteristic(Characteristic.SerialNumber).value, '3000000001');
-    assert.equal(info.getCharacteristic(Characteristic.FirmwareRevision).value, '1.0.0', 'the package version, numeric part only (SPEC section 7)');
+    assert.equal(info.getCharacteristic(Characteristic.FirmwareRevision).value, '1.0.1', 'the package version, numeric part only (SPEC section 7)');
   });
 
   it('polls at the idle interval when Ready and the active interval when Running or in fault', async () => {
@@ -627,16 +628,16 @@ describe('GeneracPlatform', () => {
   describe('exercise watch window (SPEC section 8)', () => {
     const at = (h: number, m: number): number => new Date(2026, 8, 19, h, m, 0).getTime();
 
-    it('polls at the active interval from 09:58 until 10:20 for "10:00", and lands the next poll on the window', async () => {
+    it('polls at the active interval from 09:50 until 10:20 for "10:00", and lands the next poll on the window', async () => {
       fetcher = new FakeFetch();
       scripted(fetcher, {});
       const h = harness();
       platform = build(h, { exerciseTime: '10:00' }).platform;
-      platform.now = () => at(9, 57);
+      platform.now = () => at(9, 49);
       await platform.start();
       assert.equal(platform.nextPollMs, 60 * 1000, 'one minute before the window opens');
 
-      platform.now = () => at(9, 58);
+      platform.now = () => at(9, 50);
       await platform.poll();
       assert.equal(platform.nextPollMs, 90 * 1000);
       platform.now = () => at(10, 19);
@@ -652,8 +653,8 @@ describe('GeneracPlatform', () => {
       scripted(fetcher, {});
       const h = harness();
       platform = build(h).platform;
-      // The fixture says 10:05, so 10:03 is inside the window.
-      platform.now = () => at(10, 3);
+      // The fixture says 10:05, so the window opens at 09:55 and a 10:00 start is watched from its first minute.
+      platform.now = () => at(9, 55);
       await platform.start();
       assert.equal(platform.exerciseMinutes(), 605);
       assert.equal(platform.nextPollMs, 90 * 1000);
@@ -663,7 +664,7 @@ describe('GeneracPlatform', () => {
       fetcher = new FakeFetch();
       scripted(fetcher, { details: { 2053735: { ...ready, properties: ready.properties!.filter((p) => p.type !== 95) } } });
       platform = build(harness()).platform;
-      platform.now = () => at(10, 3);
+      platform.now = () => at(9, 55);
       await platform.start();
       assert.equal(platform.exerciseMinutes(), null);
       assert.equal(platform.nextPollMs, 10 * 60 * 1000);
