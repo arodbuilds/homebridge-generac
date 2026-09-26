@@ -15,7 +15,7 @@ A [Homebridge](https://homebridge.io) plugin that shows the standby generators o
 
 Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobile Link are its trademarks. Uses Generac's undocumented Mobile Link API, which can change without notice.
 
-> **Status:** 1.0.0, released September 26, 2026.
+> **Status:** 1.0.1, released RELEASE_DATE.
 
 ## Contents
 
@@ -120,7 +120,7 @@ Every sensor also reports Status Active, which is off while the unit is not resp
 ## How it works
 
 - **Polling.** While every generator is ready and quiet the plugin checks Mobile Link every 10 minutes (Poll interval while idle, minimum 2). While any generator is running, exercising or in fault it checks every 90 seconds (Poll interval while running or in fault, minimum 60). Mobile Link itself updates every few minutes and limits how often an account can be checked, so faster settings rarely help.
-- **The exercise watch window.** Around the exercise time, from 2 minutes before it until 20 minutes after it, every day, the plugin checks at the faster interval so a live exercise is likely to be seen rather than only detected afterwards.
+- **The exercise watch window.** Around the exercise time, from 10 minutes before it until 20 minutes after it, every day, the plugin checks at the faster interval so a live exercise is likely to be seen rather than only detected afterwards. The window opens early because Mobile Link can report a slightly later time than the one the generator keeps: one unit starts at 10:00 while Mobile Link says 10:05, so the prefilled time still covers the start.
 - **Backoff.** When a check fails, the plugin waits longer between tries, doubling from the fast interval up to 30 minutes with some jitter. After three failures in a row the sensors show Not responding until a check succeeds.
 - **Sign-in.** The plugin signs in once, from the settings page, and keeps only a refresh token. Access tokens are refreshed shortly before they expire; the plugin never signs in again on its own and never needs the password after the first time.
 - **After a password change.** Changing the Mobile Link password revokes the refresh token. The plugin then enters Reconnect needed: it logs once, marks the sensors as not responding, turns the Attention needed sensor on if enabled, and retries hourly in case access comes back. Click Reconnect on the settings page and sign in again; nothing else changes.
@@ -132,6 +132,7 @@ Every sensor also reports Status Active, which is off while the unit is not resp
 - The password is never stored. It is used once to sign in from the settings page (or the `homebridge-generac login` command) and then forgotten.
 - `homebridge-generac/state.json` holds what the settings page shows: the account state, each generator's last status, and when the plugin last checked. No tokens.
 - With Debug logging on, every status change writes the raw Mobile Link payload for the generator to `homebridge-generac/captures/`, keeping the newest 10, so a real payload can be shared as a test fixture. Captures never contain tokens.
+- `homebridge-generac/debug/` exists only if you ran `homebridge-generac login --debug` and a sign-in step failed. It holds the page Mobile Link's sign-in service returned, with codes, state and tokens replaced by REDACTED (mode 600). Without `--debug`, the command writes no such file, and it never writes to the folder you run it from.
 - The log never contains passwords, tokens, keys or one-time codes, at any log level.
 - Nothing is sent anywhere but Generac. The plugin talks to Generac's sign-in service and the Mobile Link API and to nothing else.
 - To remove everything, use Reset plugin to fresh install on the settings page, or delete the `homebridge-generac` folder in the Homebridge storage folder.
@@ -161,7 +162,14 @@ npm test
 
 To try a build on a Homebridge host, symlink the clone into the global plugin path, for example `ln -s ~/homebridge-generac "$(npm root -g)/homebridge-generac"`, then restart Homebridge. The settings page is TypeScript under `homebridge-ui/src/`, compiled to `homebridge-ui/public/js/` by the build; its server side is compiled from `src/ui/` and started by `homebridge-ui/server.js`. [SPEC.md](SPEC.md) is the source of truth for behaviour, naming, configuration and the page's copy.
 
-The `homebridge-generac status` command prints the account and generator state from a terminal, and `homebridge-generac login` signs in without the settings page.
+The `homebridge-generac status` command prints the account and generator state from a terminal, and `homebridge-generac login` signs in without the settings page:
+
+```shell
+homebridge-generac login [--out file] [--debug]
+homebridge-generac status [--creds file]
+```
+
+Run `login` as the user Homebridge runs as, so the credentials land in `homebridge-generac/credentials.json` in its storage folder (or at `--out`). The redirects it prints show their shape only: the sign-in code, state and any token read `REDACTED`. When a sign-in step fails, `login` prints the step, the HTTP status and the sign-in service's error code. Add `--debug` to also save the page that step returned, redacted the same way, to `homebridge-generac/debug/<step>-<status>.html` next to the credentials (mode 600), for a bug report. Nothing is written to the folder you run it from.
 
 ## Credits
 
