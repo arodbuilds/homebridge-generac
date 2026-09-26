@@ -4,7 +4,7 @@ All notable changes to homebridge-generac are listed here. The format follows Ke
 
 ## Unreleased
 
-## 1.0.1 (RELEASE_DATE)
+## 1.0.1 (September 26, 2026)
 
 ### Changed
 
