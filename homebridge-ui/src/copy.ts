@@ -14,8 +14,7 @@ export const BANNER = {
 
 export const INTRO = {
   one: 'Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. '
-    + 'Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor and a starting battery reading. '
-    + 'Propane models will also get a tank level later.',
+    + 'Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor, an Exercising sensor and a starting battery reading.',
   two: 'It is read only. It cannot start, stop or exercise the generator. Connect your account below and your generators are found for you.',
   accountHeading: 'Mobile Link account',
   accountHelp: 'One account per Homebridge instance. Use the email and password you use in the Mobile Link app.',

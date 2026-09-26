@@ -59,6 +59,13 @@ describe('UI copy (SPEC section 11.3)', () => {
     assert.ok(schema.headerDisplay.endsWith(` ${copy.INTRO.affiliation}`), 'config.schema.json headerDisplay ends with the affiliation line');
   });
 
+  it('the schema header is Intro 1 followed by the affiliation line, and Intro 1 names all five readings', () => {
+    const schema = JSON.parse(fs.readFileSync(path.resolve(fixturesDir, '..', '..', 'config.schema.json'), 'utf8')) as { headerDisplay: string };
+    assert.equal(schema.headerDisplay, `${copy.INTRO.one} ${copy.INTRO.affiliation}`);
+    assert.equal(copy.INTRO.one, 'Generac for Homebridge shows the standby generators on your Mobile Link account in the Home app. '
+      + 'Each generator appears as a Running sensor, a Fault sensor, a Maintenance Due sensor, an Exercising sensor and a starting battery reading.');
+  });
+
   it('the display name is Generac and the banner title Generac for Homebridge (SPEC section 3)', () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve(fixturesDir, '..', '..', 'package.json'), 'utf8')) as { displayName: string };
     assert.equal(pkg.displayName, 'Generac');
