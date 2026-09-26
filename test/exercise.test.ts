@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { ExerciseTracker, inWatchWindow, msUntilWatchWindow, parseHHMM } from '../src/exercise.js';
+import { ExerciseTracker, inWatchWindow, msUntilWatchWindow, parseHHMM, WATCH_AFTER_MINUTES, WATCH_BEFORE_MINUTES } from '../src/exercise.js';
 import { STATUS } from '../src/types.js';
 
 const HOLD = 5 * 60 * 1000;
@@ -24,8 +24,11 @@ describe('parseHHMM', () => {
 describe('watch window (SPEC section 8)', () => {
   const ten = 10 * 60;
 
-  it('opens 2 minutes before and closes 20 minutes after, in local time', () => {
-    assert.equal(inWatchWindow(ten, local(9, 57, 59)), false);
+  it('opens 10 minutes before and closes 20 minutes after, in local time', () => {
+    assert.equal(WATCH_BEFORE_MINUTES, 10);
+    assert.equal(WATCH_AFTER_MINUTES, 20);
+    assert.equal(inWatchWindow(ten, local(9, 49, 59)), false);
+    assert.equal(inWatchWindow(ten, local(9, 50)), true);
     assert.equal(inWatchWindow(ten, local(9, 58)), true);
     assert.equal(inWatchWindow(ten, local(10, 0)), true);
     assert.equal(inWatchWindow(ten, local(10, 19, 59)), true);
@@ -33,17 +36,39 @@ describe('watch window (SPEC section 8)', () => {
     assert.equal(inWatchWindow(ten, local(15, 0)), false);
   });
 
+  it('covers a 10:00 start when Mobile Link reports 10:05 (SPEC section 16)', () => {
+    const reported = 10 * 60 + 5;
+    assert.equal(inWatchWindow(reported, local(9, 54, 59)), false);
+    assert.equal(inWatchWindow(reported, local(9, 55)), true);
+    assert.equal(inWatchWindow(reported, local(10, 0)), true);
+    assert.equal(inWatchWindow(reported, local(10, 24, 59)), true);
+    assert.equal(inWatchWindow(reported, local(10, 25)), false);
+  });
+
   it('handles a window that straddles midnight', () => {
-    assert.equal(inWatchWindow(1, local(23, 59)), true);
-    assert.equal(inWatchWindow(1, local(0, 15)), true);
-    assert.equal(inWatchWindow(1, local(0, 21)), false);
-    assert.equal(inWatchWindow(23 * 60 + 50, local(0, 5)), true);
+    // An exercise at 00:05 opens the window at 23:55 the day before.
+    const five = 5;
+    assert.equal(inWatchWindow(five, local(23, 54, 59)), false);
+    assert.equal(inWatchWindow(five, local(23, 55)), true);
+    assert.equal(inWatchWindow(five, local(23, 59, 59)), true);
+    assert.equal(inWatchWindow(five, local(0, 0)), true);
+    assert.equal(inWatchWindow(five, local(0, 24, 59)), true);
+    assert.equal(inWatchWindow(five, local(0, 25)), false);
+    // An exercise at 00:00 opens at 23:50; one at 23:50 runs until 00:10.
+    assert.equal(inWatchWindow(0, local(23, 50)), true);
+    assert.equal(inWatchWindow(0, local(23, 49)), false);
+    assert.equal(inWatchWindow(23 * 60 + 50, local(0, 9)), true);
+    assert.equal(inWatchWindow(23 * 60 + 50, local(0, 10)), false);
   });
 
   it('reports the time until the next window', () => {
-    assert.equal(msUntilWatchWindow(ten, local(9, 58)), 0);
-    assert.equal(msUntilWatchWindow(ten, local(9, 57)), 60 * 1000);
-    assert.equal(msUntilWatchWindow(ten, local(10, 20)), (24 * 60 - 22) * 60 * 1000);
+    assert.equal(msUntilWatchWindow(ten, local(9, 50)), 0);
+    assert.equal(msUntilWatchWindow(ten, local(9, 49)), 60 * 1000);
+    assert.equal(msUntilWatchWindow(ten, local(10, 20)), (24 * 60 - 30) * 60 * 1000);
+    // Across midnight: an exercise at 00:05 opens at 23:55.
+    assert.equal(msUntilWatchWindow(5, local(23, 50)), 5 * 60 * 1000);
+    assert.equal(msUntilWatchWindow(5, local(0, 25)), (24 * 60 - 30) * 60 * 1000);
+    assert.equal(msUntilWatchWindow(5, local(12, 0)), (11 * 60 + 55) * 60 * 1000);
   });
 });
 

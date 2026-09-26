@@ -21,8 +21,11 @@ export function parseHHMM(value: string | null | undefined): number | null {
   return h * 60 + min;
 }
 
-/** The watch window opens this many minutes before the exercise time and closes this many after it. */
-export const WATCH_BEFORE_MINUTES = 2;
+/**
+ * The watch window opens this many minutes before the exercise time and closes this many after it. It opens early
+ * because Mobile Link can report a later time than the unit keeps (10:05 reported, 10:00 start; SPEC section 16).
+ */
+export const WATCH_BEFORE_MINUTES = 10;
 export const WATCH_AFTER_MINUTES = 20;
 
 const DAY_MINUTES = 24 * 60;
@@ -33,8 +36,8 @@ function localMinutes(now: Date): number {
 }
 
 /**
- * True from `exerciseMinutes - 2` (inclusive) to `exerciseMinutes + 20` (exclusive), every day, in the host's
- * local time zone. A window that straddles midnight (an exercise at 00:01 or 23:50) is handled.
+ * True from `exerciseMinutes - 10` (inclusive) to `exerciseMinutes + 20` (exclusive), every day, in the host's
+ * local time zone. A window that straddles midnight (an exercise at 00:05 or 23:50) is handled.
  */
 export function inWatchWindow(exerciseMinutes: number, now: Date): boolean {
   const offset = (localMinutes(now) - (exerciseMinutes - WATCH_BEFORE_MINUTES) + DAY_MINUTES) % DAY_MINUTES;

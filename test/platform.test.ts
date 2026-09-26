@@ -627,16 +627,16 @@ describe('GeneracPlatform', () => {
   describe('exercise watch window (SPEC section 8)', () => {
     const at = (h: number, m: number): number => new Date(2026, 8, 19, h, m, 0).getTime();
 
-    it('polls at the active interval from 09:58 until 10:20 for "10:00", and lands the next poll on the window', async () => {
+    it('polls at the active interval from 09:50 until 10:20 for "10:00", and lands the next poll on the window', async () => {
       fetcher = new FakeFetch();
       scripted(fetcher, {});
       const h = harness();
       platform = build(h, { exerciseTime: '10:00' }).platform;
-      platform.now = () => at(9, 57);
+      platform.now = () => at(9, 49);
       await platform.start();
       assert.equal(platform.nextPollMs, 60 * 1000, 'one minute before the window opens');
 
-      platform.now = () => at(9, 58);
+      platform.now = () => at(9, 50);
       await platform.poll();
       assert.equal(platform.nextPollMs, 90 * 1000);
       platform.now = () => at(10, 19);
@@ -652,8 +652,8 @@ describe('GeneracPlatform', () => {
       scripted(fetcher, {});
       const h = harness();
       platform = build(h).platform;
-      // The fixture says 10:05, so 10:03 is inside the window.
-      platform.now = () => at(10, 3);
+      // The fixture says 10:05, so the window opens at 09:55 and a 10:00 start is watched from its first minute.
+      platform.now = () => at(9, 55);
       await platform.start();
       assert.equal(platform.exerciseMinutes(), 605);
       assert.equal(platform.nextPollMs, 90 * 1000);
@@ -663,7 +663,7 @@ describe('GeneracPlatform', () => {
       fetcher = new FakeFetch();
       scripted(fetcher, { details: { 2053735: { ...ready, properties: ready.properties!.filter((p) => p.type !== 95) } } });
       platform = build(harness()).platform;
-      platform.now = () => at(10, 3);
+      platform.now = () => at(9, 55);
       await platform.start();
       assert.equal(platform.exerciseMinutes(), null);
       assert.equal(platform.nextPollMs, 10 * 60 * 1000);
