@@ -63,7 +63,7 @@ export interface LoginOptions {
   mfaPrompt: (type: MfaType, attempt: number) => Promise<string>;
   /** Optional step logger for diagnostics. Never receives secrets. */
   log?: (step: string, message: string) => void;
-  /** Optional sink for the HTML of a failed step. */
+  /** Optional sink for the HTML of a failed step, as the server sent it: pass it through `redactBody()` before it is written anywhere. */
   onFailureBody?: (step: string, status: number, body: string) => void;
 }
 
@@ -96,6 +96,55 @@ function truncate(s: string | null, n = 160): string {
     return '';
   }
   return s.length > n ? s.slice(0, n) + '…' : s;
+}
+
+// ---------------------------------------------------------------------------
+// Redaction (SPEC section 12): sign-in redirects carry the authorization code and state
+// ---------------------------------------------------------------------------
+
+/** Parameters whose values never reach a log line, an error message or a debug file. */
+export const REDACTED_KEYS = ['code', 'state', 'nonce', 'code_challenge', 'code_verifier', 'id_token', 'access_token', 'refresh_token'];
+
+const KEYS = REDACTED_KEYS.join('|');
+// A key right after `?`, `&`, `#` or the `;` of an HTML `&amp;`, so `code_challenge_method` and `client_id` are left alone.
+const PARAM = new RegExp(`([?&#;])(${KEYS})=[^&#\\s"'<>]*`, 'gi');
+const INPUT_TAG = /<input\b[^>]*>/gi;
+const INPUT_NAME = new RegExp(`\\bname\\s*=\\s*(["']?)(${KEYS})\\1(?=[\\s/>])`, 'i');
+const INPUT_VALUE = /(\bvalue\s*=\s*)(["'])[^"']*\2/i;
+const JSON_FIELD = new RegExp(`(["'])(${KEYS})\\1(\\s*:\\s*)(["'])[^"']*\\4`, 'gi');
+const JWT = /\beyJ[\w-]+\.[\w-]+\.[\w-]*/g;
+
+/**
+ * A URL or Location header with the values of `code`, `state`, `nonce`, `code_challenge`, `code_verifier`,
+ * `id_token`, `access_token` and `refresh_token` replaced by REDACTED, in the query and in a `#fragment`. The key
+ * names stay, so a log line still shows the shape of the redirect. Relative and app-scheme URLs work too.
+ */
+export function redactUrl(url: string): string {
+  return url.replace(PARAM, '$1$2=REDACTED');
+}
+
+/**
+ * An HTML page (a failed sign-in step) with the same rules as `redactUrl()` applied to every URL in it, plus the
+ * same keys as hidden form fields (`<input name="state" value="…">`) and as JSON fields, and anything shaped
+ * like a JWT. Used before the CLI writes a debug file.
+ */
+export function redactBody(body: string): string {
+  return redactUrl(body)
+    .replace(INPUT_TAG, (tag) => (INPUT_NAME.test(tag) ? tag.replace(INPUT_VALUE, '$1$2REDACTED$2') : tag))
+    .replace(JSON_FIELD, '$1$2$1$3$4REDACTED$4')
+    .replace(JWT, 'REDACTED');
+}
+
+/** Only `error` and `error_description` from a token endpoint answer, for an error message. Never the whole payload. */
+function oauthError(payload: Record<string, unknown>): string {
+  const fields: Record<string, string> = {};
+  for (const k of ['error', 'error_description']) {
+    const v = payload[k];
+    if (typeof v === 'string') {
+      fields[k] = v;
+    }
+  }
+  return Object.keys(fields).length > 0 ? ` ${JSON.stringify(fields)}` : '';
 }
 
 // ---------------------------------------------------------------------------
@@ -238,7 +287,7 @@ async function stepAuthorize(ctx: Ctx, key: DPoPKey, state: string, challenge: s
     return fail(ctx, 'authorize', res);
   }
   const loc = res.headers.get('location') ?? '';
-  log(ctx, 'authorize', `302 -> ${truncate(loc)}`);
+  log(ctx, 'authorize', `302 -> ${truncate(redactUrl(loc))}`);
   const next = absolute(loc).searchParams.get('state');
   if (!next) {
     throw new AuthError('authorize: no state in redirect', 'authorize');
@@ -262,7 +311,7 @@ async function postForm(ctx: Ctx, step: string, url: string, state: string, form
     return fail(ctx, step, res);
   }
   const loc = res.headers.get('location') ?? '';
-  log(ctx, step, `302 -> ${truncate(loc)}`);
+  log(ctx, step, `302 -> ${truncate(redactUrl(loc))}`);
   return loc;
 }
 
@@ -319,7 +368,7 @@ async function handleCustomPrompt(ctx: Ctx, loc: string): Promise<string> {
     );
   }
   const next = res.headers.get('location') ?? '';
-  log(ctx, 'custom-prompt', `302 -> ${truncate(next)}`);
+  log(ctx, 'custom-prompt', `302 -> ${truncate(redactUrl(next))}`);
   const nextState = absolute(next).searchParams.get('state');
   if (!nextState) {
     throw new AuthError('custom-prompt: no state after continue', 'custom-prompt');
@@ -371,7 +420,7 @@ async function driveResume(ctx: Ctx, resumeState: string, depth = 0): Promise<st
       return fail(ctx, 'resume', res);
     }
     const loc = res.headers.get('location') ?? '';
-    log(ctx, 'resume', `302 -> ${truncate(loc)}`);
+    log(ctx, 'resume', `302 -> ${truncate(redactUrl(loc))}`);
 
     if (loc.startsWith(APP_SCHEME)) {
       const code = new URL(loc).searchParams.get('code');
@@ -394,7 +443,7 @@ async function driveResume(ctx: Ctx, resumeState: string, depth = 0): Promise<st
           log(ctx, 'mfa', `code rejected (${r.error})`);
           continue;
         }
-        log(ctx, 'mfa-submit', `302 -> ${truncate(r.loc)}`);
+        log(ctx, 'mfa-submit', `302 -> ${truncate(redactUrl(r.loc))}`);
         if (r.loc.startsWith(APP_SCHEME)) {
           const c = new URL(r.loc).searchParams.get('code');
           if (!c) {
@@ -414,7 +463,7 @@ async function driveResume(ctx: Ctx, resumeState: string, depth = 0): Promise<st
         if (nu.pathname.endsWith('/authorize/resume')) {
           return driveResume(ctx, nu.searchParams.get('state')!, depth + 1);
         }
-        throw new AuthError(`mfa: unexpected redirect ${truncate(r.loc)}`, 'mfa');
+        throw new AuthError(`mfa: unexpected redirect ${truncate(redactUrl(r.loc))}`, 'mfa');
       }
       throw new AuthError('mfa: three rejected codes', 'mfa');
     }
@@ -432,7 +481,7 @@ async function driveResume(ctx: Ctx, resumeState: string, depth = 0): Promise<st
       continue;
     }
 
-    throw new AuthError(`resume: unexpected redirect ${truncate(loc)}`, 'resume');
+    throw new AuthError(`resume: unexpected redirect ${truncate(redactUrl(loc))}`, 'resume');
   }
   throw new AuthError('resume: three consecutive custom prompts. Clear pending prompts in the Mobile Link app and retry.', 'resume');
 }
@@ -494,7 +543,7 @@ export async function login(email: string, password: string, opts: LoginOptions)
     opts.log,
   );
   if (r.status !== 200) {
-    throw new AuthError(`token: code exchange failed HTTP ${r.status} ${JSON.stringify(r.payload)}`, 'token');
+    throw new AuthError(`token: code exchange failed HTTP ${r.status}${oauthError(r.payload)}`, 'token');
   }
   const tokens = r.payload as unknown as TokenResponse;
   if (!tokens.refresh_token) {
@@ -514,5 +563,5 @@ export async function refreshAccessToken(key: DPoPKey, refreshToken: string, log
   if (err === 'invalid_grant' || (r.status === 403 && /invalid|revoked|expired/i.test(desc))) {
     throw new InvalidGrantError(`refresh token rejected (${err || r.status}): ${desc}`);
   }
-  throw new AuthError(`refresh failed HTTP ${r.status} ${JSON.stringify(r.payload)}`, 'refresh');
+  throw new AuthError(`refresh failed HTTP ${r.status}${oauthError(r.payload)}`, 'refresh');
 }

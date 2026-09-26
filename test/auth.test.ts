@@ -9,6 +9,8 @@ import {
   extractAuth0ErrorCode,
   InvalidGrantError,
   login,
+  redactBody,
+  redactUrl,
   refreshAccessToken,
   USER_AGENT_API,
 } from '../src/auth.js';
@@ -172,9 +174,67 @@ describe('token endpoint', () => {
     await assert.rejects(refreshAccessToken(DPoPKey.generate(), 'rt'), (err: unknown) => {
       assert.ok(err instanceof AuthError);
       assert.equal(err instanceof InvalidGrantError, false);
-      assert.match(err.message, /HTTP 502/);
+      assert.equal(err.message, 'refresh failed HTTP 502', 'no HTML body in the message');
       return true;
     });
+  });
+
+  it('a failed refresh message carries only error and error_description from the payload', async () => {
+    fetcher = new FakeFetch().on(TOKEN_URL, () =>
+      json({ error: 'server_error', error_description: 'Try again later', refresh_token: 'echoed-refresh-token', access_token: 'echoed-access' }, 500),
+    );
+    await assert.rejects(refreshAccessToken(DPoPKey.generate(), 'rt'), (err: unknown) => {
+      assert.ok(err instanceof AuthError);
+      assert.equal(err.message, 'refresh failed HTTP 500 {"error":"server_error","error_description":"Try again later"}');
+      return true;
+    });
+  });
+});
+
+describe('redaction (SPEC section 12)', () => {
+  const APP = 'com.generac.mobilelink.auth0://auth.ecobee.com/ios/com.generac.mobilelink/callback';
+
+  it('redactUrl replaces code and state in an app-scheme callback and keeps the key names', () => {
+    assert.equal(redactUrl(`${APP}?code=dF3kQ9vXz2LmN8pR4tY7wA1bC6eH0jK5sU&state=kP2x`), `${APP}?code=REDACTED&state=REDACTED`);
+  });
+
+  it('redactUrl covers every listed key, in the query and in a fragment, and leaves other parameters alone', () => {
+    const url = '/authorize?response_type=code&code_challenge=abc&code_challenge_method=S256&client_id=eyjSu&state=s1&nonce=n1'
+      + '&code_verifier=v1&redirect_uri=x#access_token=a1&id_token=i1&refresh_token=r1&state=s2&token_type=Bearer';
+    assert.equal(
+      redactUrl(url),
+      '/authorize?response_type=code&code_challenge=REDACTED&code_challenge_method=S256&client_id=eyjSu&state=REDACTED&nonce=REDACTED'
+        + '&code_verifier=REDACTED&redirect_uri=x#access_token=REDACTED&id_token=REDACTED&refresh_token=REDACTED&state=REDACTED&token_type=Bearer',
+    );
+    assert.equal(redactUrl('/u/login/identifier?state=hKFo2SBa'), '/u/login/identifier?state=REDACTED');
+    assert.equal(redactUrl('/u/login/password'), '/u/login/password');
+    assert.equal(redactUrl(''), '');
+  });
+
+  it('redactBody applies the same rules to URLs, hidden fields, JSON fields and JWTs in a page', () => {
+    const jwt = 'eyJhbGciOiJFUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.c2lnbmF0dXJl';
+    const page = [
+      '<form method="POST" action="/u/login/password?state=hKFoSecretState">',
+      '<input type="hidden" name="state" value="hKFoSecretState">',
+      '<input value="123456" name="code" type="text">',
+      '<input type="text" name="username" value="you@example.com">',
+      '<span data-error-code="wrong-credentials"></span>',
+      '<a href="/authorize/resume?client_id=c&amp;code=SecretCode">x</a>',
+      `<script>var cfg = {"state":"hKFoSecretState", "access_token": "${jwt}", 'nonce':'SecretNonce'}; var t = "${jwt}";</script>`,
+    ].join('\n');
+    const out = redactBody(page);
+    for (const secret of ['hKFoSecretState', 'SecretCode', '123456', 'SecretNonce', jwt, 'eyJ']) {
+      assert.equal(out.includes(secret), false, `${secret} survived`);
+    }
+    assert.ok(out.includes('<input type="hidden" name="state" value="REDACTED">'));
+    assert.ok(out.includes('<input value="REDACTED" name="code" type="text">'));
+    assert.ok(out.includes('action="/u/login/password?state=REDACTED"'));
+    assert.ok(out.includes('&amp;code=REDACTED'));
+    assert.ok(out.includes('"state":"REDACTED"'));
+    assert.ok(out.includes('"access_token": "REDACTED"'));
+    assert.ok(out.includes('\'nonce\':\'REDACTED\''));
+    assert.ok(out.includes('name="username" value="you@example.com"'), 'other fields are kept');
+    assert.ok(out.includes('data-error-code="wrong-credentials"'), 'the Auth0 error code is kept');
   });
 });
 
@@ -277,6 +337,95 @@ describe('login flow against a scripted Auth0', () => {
       },
     );
     assert.equal(bodies.length, 1);
+  });
+
+  // Real-looking values: an Auth0 authorization code and the base64url states the tenant hands out.
+  const CODE = 'dF3kQ9vXz2LmN8pR4tY7wA1bC6eH0jK5sU';
+  const LOGIN_STATE = 'hKFo2SBxWjRkM2J5Y0lTZ0VhT0xxa2RtT0p6';
+  const RESUME_STATE = 'hKFo2SBpNmZXc2tMVUtPWGdUTEJ4ZkZQbnRt';
+  const APP_STATE = 'Wm9vV2hhdEFTdGF0ZVZhbHVlRm9yVGhlQXBw';
+
+  /** Auth0 up to the resume step; the caller scripts /authorize/resume and anything after. */
+  function upToResume(f: FakeFetch): FakeFetch {
+    return f
+      .on(`${base}/authorize`, () => redirect(`/u/login/identifier?state=${LOGIN_STATE}`))
+      .on(`${base}/u/login/identifier`, () => redirect(`/u/login/password?state=${LOGIN_STATE}`))
+      .on(`${base}/u/login/password`, () => redirect(`/authorize/resume?state=${RESUME_STATE}`));
+  }
+
+  function assertNoSecrets(text: string): void {
+    for (const secret of [CODE, LOGIN_STATE, RESUME_STATE, APP_STATE]) {
+      assert.equal(text.includes(secret), false, `${secret} in ${JSON.stringify(text)}`);
+    }
+  }
+
+  it('logs the callback redirect with code=REDACTED and state=REDACTED, and still exchanges the real code', async () => {
+    fetcher = upToResume(new FakeFetch())
+      .on(`${base}/authorize/resume`, () => redirect(`${APP}?code=${CODE}&state=${APP_STATE}`))
+      .on(TOKEN_URL, () => json({ access_token: 'at', refresh_token: 'rt', expires_in: 7200, token_type: 'Bearer' }));
+    const steps: string[] = [];
+    await login('you@example.com', 'pw', { mfaPrompt: async () => '', log: (step, msg) => steps.push(`${step}: ${msg}`) });
+
+    assert.ok(steps.includes(`resume: 302 -> ${APP}?code=REDACTED&state=REDACTED`), steps.join('\n'));
+    assert.ok(steps.includes('identifier: 302 -> /u/login/password?state=REDACTED'));
+    for (const s of steps) {
+      assertNoSecrets(s);
+    }
+    assert.equal(JSON.parse(fetcher.callsTo(TOKEN_URL)[0].body!).code, CODE, 'only the log is redacted');
+  });
+
+  it('logs the callback after an MFA code with code=REDACTED', async () => {
+    fetcher = upToResume(new FakeFetch())
+      .on(`${base}/authorize/resume`, () => redirect(`/u/mfa-sms-challenge?state=${RESUME_STATE}`))
+      .on(`${base}/u/mfa-sms-challenge`, () => redirect(`${APP}?code=${CODE}&state=${APP_STATE}`))
+      .on(TOKEN_URL, () => json({ access_token: 'at', refresh_token: 'rt', expires_in: 7200, token_type: 'Bearer' }));
+    const steps: string[] = [];
+    await login('you@example.com', 'pw', { mfaPrompt: async () => '123456', log: (step, msg) => steps.push(`${step}: ${msg}`) });
+    assert.ok(steps.includes(`mfa-submit: 302 -> ${APP}?code=REDACTED&state=REDACTED`), steps.join('\n'));
+    for (const s of steps) {
+      assertNoSecrets(s);
+    }
+  });
+
+  it('an unexpected redirect error message carries no code or state value', async () => {
+    fetcher = upToResume(new FakeFetch()).on(`${base}/authorize/resume`, () => redirect(`/u/new-page?code=${CODE}&state=${APP_STATE}`));
+    await assert.rejects(login('you@example.com', 'pw', { mfaPrompt: async () => '' }), (err: unknown) => {
+      assert.ok(err instanceof AuthError);
+      assert.equal(err.message, 'resume: unexpected redirect /u/new-page?code=REDACTED&state=REDACTED');
+      return true;
+    });
+
+    fetcher.restore();
+    fetcher = upToResume(new FakeFetch())
+      .on(`${base}/authorize/resume`, () => redirect(`/u/mfa-otp-challenge?state=${RESUME_STATE}`))
+      .on(`${base}/u/mfa-otp-challenge`, () => redirect(`/u/new-page?state=${APP_STATE}&code=${CODE}`));
+    await assert.rejects(login('you@example.com', 'pw', { mfaPrompt: async () => '123456' }), (err: unknown) => {
+      assert.ok(err instanceof AuthError);
+      assert.equal(err.message, 'mfa: unexpected redirect /u/new-page?state=REDACTED&code=REDACTED');
+      return true;
+    });
+  });
+
+  it('a failed token exchange message carries only error and error_description', async () => {
+    fetcher = upToResume(new FakeFetch())
+      .on(`${base}/authorize/resume`, () => redirect(`${APP}?code=${CODE}&state=${APP_STATE}`))
+      .on(TOKEN_URL, () => json({ error: 'invalid_grant', error_description: 'Invalid authorization code', code: CODE, id_token: 'eyJ.x.y' }, 403));
+    await assert.rejects(login('you@example.com', 'pw', { mfaPrompt: async () => '' }), (err: unknown) => {
+      assert.ok(err instanceof AuthError);
+      assert.equal(err.step, 'token');
+      assert.equal(err.message, 'token: code exchange failed HTTP 403 {"error":"invalid_grant","error_description":"Invalid authorization code"}');
+      return true;
+    });
+
+    fetcher.restore();
+    fetcher = upToResume(new FakeFetch())
+      .on(`${base}/authorize/resume`, () => redirect(`${APP}?code=${CODE}&state=${APP_STATE}`))
+      .on(TOKEN_URL, () => html(`<html>error for code ${CODE}</html>`, 502));
+    await assert.rejects(login('you@example.com', 'pw', { mfaPrompt: async () => '' }), (err: unknown) => {
+      assert.ok(err instanceof AuthError);
+      assert.equal(err.message, 'token: code exchange failed HTTP 502');
+      return true;
+    });
   });
 
   it('refuses factors that cannot be driven from a terminal', async () => {
