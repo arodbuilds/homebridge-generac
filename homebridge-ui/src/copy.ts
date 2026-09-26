@@ -101,7 +101,7 @@ export const GENERATOR = {
   name: 'Name',
   saveName: 'Save name',
   cancel: 'Cancel',
-  alsoPropane: 'Also on your account: Propane tank monitor (tank level support is coming).',
+  alsoPropane: 'Also on your account: Propane tank monitor (not supported).',
   alsoEcobee: (name: string): string => `Also on your account: ecobee thermostat "${name}" (already in HomeKit, skipped).`,
 };
 

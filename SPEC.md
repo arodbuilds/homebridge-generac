@@ -30,7 +30,7 @@ Successor to the unmaintained `homebridge-mobilelink`. Ground-up rewrite; no cod
 7. Exercising sensor with retroactive detection from the last-exercise event.
 
 ### 2.2 Deferred
-1. Propane tank monitors (type 2) as a battery-percentage accessory. Planned for 0.2.0. The generator card already reserves a Fuel row.
+1. Propane tank monitors (type 2) as a battery-percentage accessory: on hold until a tester with a tank monitor volunteers. No release is planned, and nothing the plugin shows promises it.
 2. Remote start, stop or exercise. No command endpoint has been validated and the plugin stays read only until one is.
 3. Multiple accounts.
 
@@ -95,7 +95,7 @@ Base `https://app.mobilelinkgen.com/api/v5`. Bearer auth. `Accept: application/j
 |---|---|---|
 | 0 | generator | accessory |
 | 1 | unknown | log once, skip |
-| 2 | propane tank monitor | log once with the "coming" line, skip (0.2.0) |
+| 2 | propane tank monitor | log once as not supported, skip |
 | 7 | linked ecobee thermostat | log once as skipped, never call details |
 
 ### 5.3 Bearer, not DPoP
@@ -276,7 +276,7 @@ Generac additions:
 - Not responding note: `Mobile Link hasn't heard from this generator since {time}.`
 - Rows: `Battery` `{volts} V` with badge `Low` at or below threshold; `Fuel` `{percent}%` with help `Propane models only` (row hidden on non-propane units); `Engine hours` `{n} h`; `Exercise time` `{time} weekly` (the configured `exerciseTime`, 12-hour, else the API value); `Last exercise` `{date} at {time}`; `Last seen` `{relative time}`
 - Footer button: `Rename`. Inline field label `Name`, buttons `Save name`, `Cancel`. Required message `Name is required.`
-- Also lines: `Also on your account: Propane tank monitor (tank level support is coming).` and `Also on your account: ecobee thermostat "{name}" (already in HomeKit, skipped).`
+- Also lines: `Also on your account: Propane tank monitor (not supported).` and `Also on your account: ecobee thermostat "{name}" (already in HomeKit, skipped).`
 
 **E. Settings (Advanced disclosure)**
 - `Name` (required, default `Generac`)
@@ -337,9 +337,9 @@ Generac additions:
 2. Build 2: state file consumer, UI server, settings page, `customUi`, Rename, Exercising sensor with watch window and retroactive detection, captures. Chrome pass on the Pi in both themes and at phone width.
 3. Build 3: affiliation line moved, README with masked screenshots, SECURITY.md, CHANGELOG dated, release workflow with a one-time token fallback for the first publish. Then: GitHub pre-release `v0.1.0-beta.1` publishes to npm `beta` with provenance; switch the npm package to a GitHub Actions trusted publisher and delete the token; reinstall from npm on the Pi through the Homebridge UI; r/homebridge tester post.
 4. Soak, then r/homebridge tester post, then `1.0.0`, then the Homebridge verification issue (keywords must include `supports-hap`).
-5. 0.2.0: propane tank monitors.
+5. Propane tank monitors: on hold until a tester with a tank monitor volunteers.
 6. 1.0.0: engines and CI on Node 20, 22, 24; beta defects fixed; README status line removed; GitHub release marked latest publishes to npm `latest`. Then the Homebridge verification issue.
-7. 1.0.1 (build 5), during verification review: CLI `login` redaction and debug files under the storage directory only with `--debug` (section 12); exercise watch window opens 10 minutes early (section 8); Intro 1 names the Exercising sensor and drops the propane promise (11.3 A).
+7. 1.0.1 (build 5), during verification review: CLI `login` redaction and debug files under the storage directory only with `--debug` (section 12); exercise watch window opens 10 minutes early (section 8); Intro 1 names the Exercising sensor and drops the propane promise (11.3 A); propane tank support on hold, with every promise removed from the settings page, the log and the README (sections 2.2, 5.2, 11.3 D).
 
 ## 16. Decisions and open items
 
@@ -357,3 +357,4 @@ Generac additions:
 - 2026-09-25: Verification requirements checked (May 5, 2026 revision): all met once engines include Node 24. homebridge-mobilelink is on the verified list but non-functional since Generac's April 21, 2026 auth change and unpublished since December 2023; the submission states that this plugin offers strictly more.
 - 2026-09-26: Live test with debug on: the Homebridge log is clean. The CLI `login` still printed the authorization code and wrote debug pages to the working directory; both fixed in 1.0.1 (section 12).
 - 2026-09-26: The unit started at 10:00 while the API reported 10:05, so the watch window opens 10 minutes early (it was 2) to cover a start before the reported time. With the prefilled 10:05, the window now opens at 09:55; before, fast polling began at 10:03 and the sensor only opened later through retroactive detection.
+- 2026-09-26: Propane tank support is on hold with no planned release, until a tester with a tank monitor volunteers (the `tuProperties` open item above needs one). The settings page line, the Homebridge log line and the README no longer promise it. The 1.0.0 and 0.1.0-beta.1 CHANGELOG entries stay as they are, since they describe what shipped then.

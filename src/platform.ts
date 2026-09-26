@@ -373,7 +373,7 @@ export class GeneracPlatform implements DynamicPlatformPlugin {
           this.once(
             `propane-${raw.apparatusId}`,
             'info',
-            `Found ${label} "${raw.name}" (id ${raw.apparatusId}). Tank level support is planned; not exposed yet.`,
+            `Skipping ${label} "${raw.name}" (id ${raw.apparatusId}). Tank monitors are not supported.`,
           );
         } else if (raw.type === DEVICE_TYPE.LINKED_ECOBEE) {
           this.once(

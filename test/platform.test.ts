@@ -163,7 +163,8 @@ describe('GeneracPlatform', () => {
     assert.equal(fetcher.callsTo(`${API_BASE}/Apparatus/details/`).length, 1, 'details called only for the generator');
 
     const info = built.lines('info');
-    assert.ok(info.some((l) => l.includes('propane tank monitor "Tank"')));
+    assert.ok(info.some((l) => l.includes('propane tank monitor "Tank"') && l.endsWith('Tank monitors are not supported.')));
+    assert.equal(info.some((l) => /planned|coming|0\.2\.0/.test(l)), false, 'no promise of propane support in the log');
     assert.ok(info.some((l) => l.includes('Skipping linked ecobee thermostat "Thermostat"')));
     assert.ok(info.some((l) => l.includes('Skipping unknown device "Mystery"')));
     assert.ok(info.some((l) => l.includes('Added generator "Blue Door" (22KW/999 GUARD-NO T/SW AL, S/N 3000000001)')));

@@ -10,6 +10,7 @@ All notable changes to homebridge-generac are listed here. The format follows Ke
 
 - The exercise watch window now opens 10 minutes before the exercise time instead of 2, and still closes 20 minutes after it, so the plugin checks at the faster interval for 30 minutes a day. Mobile Link can report a later time than the one the generator keeps: one unit starts at 10:00 while Mobile Link says 10:05. With the prefilled time, the first minutes of the exercise were missed and the Exercising sensor only opened later, when Mobile Link recorded the finished exercise. Now the window opens at 9:55 for that unit.
 - The intro on the settings page and at the top of the plugin's configuration lists the Exercising sensor and no longer promises a propane tank level.
+- Propane tank monitors on the account are listed on the settings page and in the Homebridge log as not supported. Propane support is on hold with no planned release, so the plugin no longer says tank level support is coming.
 
 ### Fixed
 

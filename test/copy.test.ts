@@ -85,6 +85,7 @@ describe('UI copy (SPEC section 11.3)', () => {
     assert.equal(copy.GENERATOR.weekly('10:00 AM'), '10:00 AM weekly');
     assert.equal(copy.GENERATOR.dateAt('September 12, 2026', '10:06 AM'), 'September 12, 2026 at 10:06 AM');
     assert.equal(copy.GENERATOR.alsoEcobee('Main Level'), 'Also on your account: ecobee thermostat "Main Level" (already in HomeKit, skipped).');
+    assert.equal(copy.GENERATOR.alsoPropane, 'Also on your account: Propane tank monitor (not supported).', 'propane support is on hold (SPEC section 2.2)');
     assert.equal(copy.SHELL.required('Name'), 'Name is required.');
     assert.equal(copy.RELATIVE.minutes(1), '1 minute ago');
     assert.equal(copy.RELATIVE.minutes(5), '5 minutes ago');
