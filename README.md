@@ -15,7 +15,7 @@ A [Homebridge](https://homebridge.io) plugin that shows the standby generators o
 
 Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobile Link are its trademarks. Uses Generac's undocumented Mobile Link API, which can change without notice.
 
-> **Status:** 1.0.1, released September 26, 2026.
+> **Status:** 1.0.2, released RELEASE_DATE.
 
 ## Contents
 
@@ -37,7 +37,7 @@ Not affiliated with or endorsed by Generac Power Systems, Inc. Generac and Mobil
 ## Requirements
 
 - Homebridge 1.8 or 2.x, with the Homebridge UI for the settings page.
-- Node 20, 22 or 24.
+- Node 20, 22, 24 or 26.
 - A Generac Mobile Link account with at least one generator on it.
 - If the account predates April 21, 2026, a password reset since then. Generac moved Mobile Link sign-in to a new system on that date and did not carry older passwords across, so an older password is rejected until it is reset in the Mobile Link app.
 
@@ -151,7 +151,7 @@ Every sensor also reports Status Active, which is off while the unit is not resp
 
 ## Development
 
-Node 20, 22 or 24. Clone the repository, then:
+Node 20, 22, 24 or 26. Clone the repository, then:
 
 ```shell
 npm ci

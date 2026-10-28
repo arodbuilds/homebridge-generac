@@ -45,8 +45,8 @@ Successor to the unmaintained `homebridge-mobilelink`. Ground-up rewrite; no cod
 - Platform alias in config.json: `Generac`. Default `name`: `Generac`.
 - Display name in package.json (`displayName`): `Generac`. Banner, README title and settings-page banner: `Generac for Homebridge`.
 - Versioning: `0.1.0-beta.1` first, betas on the npm `beta` tag, then `1.0.0` as first stable.
-- Node `^20.18.0 || ^22.10.0 || ^24.0.0`. Homebridge `^1.8.0 || ^2.0.0-beta.0`.
-- CI tests on Node 20, 22 and 24.
+- Node `^20.18.0 || ^22.10.0 || ^24.0.0 || ^26.0.0`. Homebridge `^1.8.0 || ^2.0.0-beta.0`.
+- CI tests on Node 20, 22, 24 and 26.
 - Runtime dependencies: `@homebridge/plugin-ui-utils` only. Auth and HTTP use Node built-ins.
 - License Apache-2.0, copyright line "Copyright 2026 Alex Rodriguez (arodbuilds) https://alex-rodriguez.com". NOTICE credits the ha-generac auth flow (sslivins, pjordanandrsn) and homebridge-mobilelink (Nicholas Penree).
 
@@ -340,6 +340,7 @@ Generac additions:
 5. Propane tank monitors: on hold until a tester with a tank monitor volunteers.
 6. 1.0.0: engines and CI on Node 20, 22, 24; beta defects fixed; README status line removed; GitHub release marked latest publishes to npm `latest`. Then the Homebridge verification issue.
 7. 1.0.1 (build 5), during verification review: CLI `login` redaction and debug files under the storage directory only with `--debug` (section 12); exercise watch window opens 10 minutes early (section 8); Intro 1 names the Exercising sensor and drops the propane promise (11.3 A); propane tank support on hold, with every promise removed from the settings page, the log and the README (sections 2.2, 5.2, 11.3 D).
+8. 1.0.2 (build 6), during verification review: engines and CI on Node 20, 22, 24 and 26 (section 3). No behaviour changes.
 
 ## 16. Decisions and open items
 
@@ -358,3 +359,4 @@ Generac additions:
 - 2026-09-26: Live test with debug on: the Homebridge log is clean. The CLI `login` still printed the authorization code and wrote debug pages to the working directory; both fixed in 1.0.1 (section 12).
 - 2026-09-26: The unit started at 10:00 while the API reported 10:05, so the watch window opens 10 minutes early (it was 2) to cover a start before the reported time. With the prefilled 10:05, the window now opens at 09:55; before, fast polling began at 10:03 and the sensor only opened later through retroactive detection.
 - 2026-09-26: Propane tank support is on hold with no planned release, until a tester with a tank monitor volunteers (the `tuProperties` open item above needs one). The settings page line, the Homebridge log line and the README no longer promise it. The 1.0.0 and 0.1.0-beta.1 CHANGELOG entries stay as they are, since they describe what shipped then.
+- 2026-10-28: Node 26 entered Active LTS on October 28, 2026, so it is added to `engines` and CI to keep meeting the Homebridge verification rule that a plugin runs on every supported LTS version. Node 20 stays for now.
